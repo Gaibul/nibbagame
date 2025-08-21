@@ -104,9 +104,30 @@
         <button id="mk_save" class="primary">Save Game</button>
       </div>
 
-      <p class="help">Each tile can change money, jump you forward/back, or just show a message. You can paste a Tile Image URL (PNG/JPG/SVG) — Google Drive links are supported. You can reorder tiles by editing their index number and clicking Save.</p>
+      <p class="help">Each tile can change money, move the player, or trigger Life-style actions (Stop, Draw Card, Payday, Family, Career, Finish). Paste image URLs (Drive links supported). Reorder tiles by editing the index #.</p>
 
       <div id="mk_tiles" class="tiles"></div>
+
+      <div class="panel" style="margin-top:14px">
+        <strong>Decks (simple line format)</strong>
+        <div class="grid3" style="margin-top:8px">
+          <div class="col">
+            <label>Career — one per line: <span class="muted">Title|Salary</span></label>
+            <textarea id="mk_deck_career"></textarea>
+          </div>
+          <div class="col">
+            <label>Action — one per line: <span class="muted">Title|Money|Jump</span></label>
+            <textarea id="mk_deck_action"></textarea>
+          </div>
+          <div class="col">
+            <label>Life — one per line: <span class="muted">Title|Money</span></label>
+            <textarea id="mk_deck_life"></textarea>
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="mk_applyDecks" class="ghost">Apply Deck Text</button>
+        </div>
+      </div>
 
       <div class="panel" style="margin-top:14px">
         <div class="board-wrap">
@@ -190,7 +211,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getDatabase, ref as dbRef, set, update, push, onValue, get, child, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    import { getDatabase, ref as dbRef, set, update, onValue, get, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
     import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
     // ===== Your Firebase config (from your message) =====
@@ -221,7 +242,6 @@
       try{
         const u = new URL(url);
         if(u.hostname.includes('drive.google.com')){
-          // patterns: https://drive.google.com/file/d/FILE_ID/view?usp=sharing OR open?id=FILE_ID
           const parts = u.pathname.split('/');
           let id = '';
           const i = parts.indexOf('d');
@@ -234,34 +254,38 @@
     };
 
     // ===== Auth (anonymous) =====
-    let me = null; let myUid = null;
+    let myUid = null;
     signInAnonymously(auth).catch(console.warn);
     onAuthStateChanged(auth, (user)=>{
-      if(user){ me = user; myUid = user.uid; $('#lb_user').textContent = `Signed in as ${myUid.slice(0,6)}… (anon)`; loadMyGames(); refreshGameSelect(); }
-    });
-
-    // ===== Tabs =====
-    $$('.tab').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const tab = btn.dataset.tab;
-        $$('.tab').forEach(b=>b.setAttribute('aria-selected', b===btn));
-        $$('#maker,#library,#play').forEach(s=>s.hidden = s.id!==tab);
-      });
+      if(user){ myUid = user.uid; $('#lb_user').textContent = `Signed in as ${myUid.slice(0,6)}… (anon)`; loadMyGames(); refreshGameSelect(); renderMaker(); }
     });
 
     // ===== MAKER state =====
-    let mk_state = { gameId:'', title:'', tilesCount:40, tiles:[] };
+    let mk_state = { gameId:'', title:'', tilesCount:40, tiles:[], decks:{
+      career:[{title:'Engineer', salary:40},{title:'Designer', salary:35},{title:'Teacher', salary:30}],
+      action:[{title:'Win a contest', money:20, jump:0},{title:'Pay a fine', money:-15, jump:0}],
+      life:[{title:'Good deed bonus', money:10},{title:'Unexpected expense', money:-10}]
+    } };
 
     const renderMaker = () => {
+      if(!$('#mk_title')) return;
       $('#mk_title').value = mk_state.title || '';
       $('#mk_tilesCount').value = mk_state.tilesCount;
       $('#mk_gameId').value = mk_state.gameId || '';
 
       // ensure tiles length
       while(mk_state.tiles.length < mk_state.tilesCount){
-        mk_state.tiles.push({ idx: mk_state.tiles.length, label:`Tile ${mk_state.tiles.length+1}`, desc:'', money:0, action:'none', actionValue:0, color:'#121842', imageUrl:'' });
+        mk_state.tiles.push({ idx: mk_state.tiles.length, label:`Tile ${mk_state.tiles.length+1}`, desc:'', money:0, action:'none', actionValue:0, actionDeck:'action', color:'#121842', imageUrl:'' });
       }
       if(mk_state.tiles.length > mk_state.tilesCount){ mk_state.tiles.length = mk_state.tilesCount; }
+
+      // fill deck textareas
+      if($('#mk_deck_career')) $('#mk_deck_career').value = (mk_state.decks.career||[]).map(c=>`${c.title}|${c.salary}`).join('
+');
+      if($('#mk_deck_action')) $('#mk_deck_action').value = (mk_state.decks.action||[]).map(c=>`${c.title}|${c.money||0}|${c.jump||0}`).join('
+');
+      if($('#mk_deck_life'))   $('#mk_deck_life').value   = (mk_state.decks.life||[]).map(c=>`${c.title}|${c.money||0}`).join('
+');
 
       // tile editor list
       const root = $('#mk_tiles');
@@ -302,6 +326,12 @@
                 <option value="none" ${t.action==='none'?'selected':''}>None</option>
                 <option value="jump" ${t.action==='jump'?'selected':''}>Jump (± steps)</option>
                 <option value="goto" ${t.action==='goto'?'selected':''}>Go to tile #</option>
+                <option value="stop" ${t.action==='stop'?'selected':''}>Stop</option>
+                <option value="payday" ${t.action==='payday'?'selected':''}>Payday</option>
+                <option value="family" ${t.action==='family'?'selected':''}>Family (+kids)</option>
+                <option value="draw" ${t.action==='draw'?'selected':''}>Draw Card</option>
+                <option value="career" ${t.action==='career'?'selected':''}>Choose Career</option>
+                <option value="finish" ${t.action==='finish'?'selected':''}>Finish</option>
               </select>
             </div>
             <div class="col">
@@ -309,14 +339,24 @@
               <input data-k="actionValue" type="number" value="${t.actionValue||0}" />
             </div>
           </div>
-          <div class="col">
-            <label>Tile Image URL (optional)</label>
-            <input data-k="imageUrl" type="text" placeholder="https://... or Google Drive link" value="${t.imageUrl||''}" />
+          <div class="grid2">
+            <div class="col">
+              <label>Tile Image URL (optional)</label>
+              <input data-k="imageUrl" type="text" placeholder="https://... or Google Drive link" value="${t.imageUrl||''}" />
+            </div>
+            <div class="col">
+              <label>Deck (for Draw/Career)</label>
+              <select data-k="actionDeck">
+                <option value="action" ${t.actionDeck==='action'?'selected':''}>Action</option>
+                <option value="life" ${t.actionDeck==='life'?'selected':''}>Life</option>
+                <option value="career" ${t.actionDeck==='career'?'selected':''}>Career</option>
+              </select>
+            </div>
           </div>
         `;
         // value handlers
         card.querySelectorAll('[data-k]').forEach(el=>{
-          el.addEventListener('change', (e)=>{
+          el.addEventListener('change', ()=>{
             const k = el.dataset.k; let v = el.value;
             if(k==='money' || k==='actionValue' || k==='idx') v = Number(v);
             if(k==='imageUrl') v = directDriveUrl(v);
@@ -358,25 +398,31 @@
       mk_state.tiles.forEach((t, i)=>{
         const s = document.createElement('div'); s.className='space'; s.style.background = t.color||'#121842';
         if(t.imageUrl){ s.style.backgroundImage = `url(${t.imageUrl})`; s.style.backgroundSize='cover'; s.style.backgroundPosition='center'; s.style.opacity=0.9; }
-        const lab = document.createElement('div'); lab.className='label'; lab.textContent = t.label||`Tile ${i+1}`; s.appendChild(lab);
+        const lab = document.createElement('div'); lab.className='label';
+        let extra = '';
+        if(t.action==='payday') extra = ' 💰';
+        if(t.action==='draw' || t.action==='career') extra = ` 🃏(${t.actionDeck||'action'})`;
+        if(t.action==='family') extra = ` 👶x${t.actionValue||1}`;
+        if(t.action==='finish') extra = ' 🏁';
+        lab.textContent = (t.label||`Tile ${i+1}`)+extra; s.appendChild(lab);
         b.appendChild(s);
       });
     };
 
     // Maker button handlers
-    $('#mk_new').addEventListener('click', ()=>{ mk_state = { gameId:'', title:'', tilesCount:40, tiles:[] }; renderMaker(); toast('New game started'); });
+    $('#mk_new').addEventListener('click', ()=>{ mk_state = { gameId:'', title:'', tilesCount:40, tiles:[], decks: mk_state.decks }; renderMaker(); toast('New game started'); });
     $('#mk_add10').addEventListener('click', ()=>{ mk_state.tilesCount = Math.min(200, mk_state.tilesCount + 10); renderMaker(); });
     $('#mk_fill').addEventListener('click', ()=>{
       const fillers = [
         { label:'Start', desc:'Begin your journey!', money:50, action:'none', actionValue:0, color:'#243a6b' },
-        { label:'Pay Rent', desc:'Bills are due.', money:-20, action:'none', color:'#3b2a5f' },
-        { label:'Go Forward', desc:'Move 2 extra steps.', money:0, action:'jump', actionValue:2, color:'#2b4b4e' },
-        { label:'Go Back', desc:'Oops! Back 1.', money:0, action:'jump', actionValue:-1, color:'#4a2b2b' },
-        { label:'Bonus', desc:'Nice job! +30.', money:30, action:'none', color:'#305035' },
+        { label:'Payday', desc:'Collect salary', money:0, action:'payday', actionValue:0, color:'#305035' },
+        { label:'Draw Card', desc:'Action card', money:0, action:'draw', actionValue:0, color:'#2b4b4e' },
+        { label:'Go Back', desc:'Back 1.', money:0, action:'jump', actionValue:-1, color:'#4a2b2b' },
+        { label:'Finish', desc:'End the game', money:0, action:'finish', actionValue:0, color:'#3b2a5f' },
       ];
       for(let i=0;i<mk_state.tilesCount;i++){
         const f = fillers[i%fillers.length];
-        mk_state.tiles[i] = { idx:i, label:f.label+` ${i+1}`, desc:f.desc, money:f.money, action:f.action, actionValue:f.actionValue||0, color:f.color, imageUrl:'' };
+        mk_state.tiles[i] = { idx:i, label:f.label+` ${i+1}`, desc:f.desc, money:f.money, action:f.action, actionValue:f.actionValue||0, actionDeck:'action', color:f.color, imageUrl:'' };
       }
       renderMaker(); toast('Filled with sample tiles');
     });
@@ -384,25 +430,41 @@
     $('#mk_title').addEventListener('input', e=>{ mk_state.title = e.target.value; });
     $('#mk_tilesCount').addEventListener('change', e=>{ mk_state.tilesCount = Math.max(10, Math.min(200, Number(e.target.value))); renderMaker(); });
 
+    function parseCareer(txt){ return (txt||'').split(/
++/).map(l=>l.trim()).filter(Boolean).map(l=>{ const [title,sal] = l.split('|'); return {title:title?.trim()||'Career', salary:Number(sal)||0}; }); }
+    function parseAction(txt){ return (txt||'').split(/
++/).map(l=>l.trim()).filter(Boolean).map(l=>{ const [title,m,j] = l.split('|'); return {title:title?.trim()||'Action', money:Number(m)||0, jump:Number(j)||0}; }); }
+    function parseLife(txt){ return (txt||'').split(/
++/).map(l=>l.trim()).filter(Boolean).map(l=>{ const [title,m] = l.split('|'); return {title:title?.trim()||'Life', money:Number(m)||0}; }); }
+
+    $('#mk_applyDecks')?.addEventListener('click',()=>{
+      mk_state.decks.career = parseCareer($('#mk_deck_career').value);
+      mk_state.decks.action = parseAction($('#mk_deck_action').value);
+      mk_state.decks.life   = parseLife($('#mk_deck_life').value);
+      toast('Decks updated (not yet saved)');
+    });
+
     $('#mk_save').addEventListener('click', async ()=>{
       if(!myUid){ toast('Sign-in not ready'); return; }
-      // basic normalize
+      // normalize
       mk_state.title = $('#mk_title').value.trim() || 'Untitled Life Game';
       mk_state.tilesCount = Number($('#mk_tilesCount').value)||40;
       mk_state.tiles.forEach((t,i)=> t.idx = i);
 
+      // ensure decks captured
+      mk_state.decks.career = parseCareer($('#mk_deck_career').value);
+      mk_state.decks.action = parseAction($('#mk_deck_action').value);
+      mk_state.decks.life   = parseLife($('#mk_deck_life').value);
+
       let gameId = mk_state.gameId || randId(8);
       const now = Date.now();
-      const gameData = { ownerUid: myUid, title: mk_state.title, tilesCount: mk_state.tilesCount, tiles: mk_state.tiles, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+      const gameData = { ownerUid: myUid, title: mk_state.title, tilesCount: mk_state.tilesCount, tiles: mk_state.tiles, decks: mk_state.decks, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
       await set(dbRef(db, `games/${gameId}`), gameData);
       await update(dbRef(db, `users/${myUid}/myGames/${gameId}`), { title: mk_state.title, updatedAt: now });
       mk_state.gameId = gameId; $('#mk_gameId').value = gameId;
       await refreshGameSelect(); await loadMyGames();
       toast(`Saved game ${gameId}`);
     });
-
-    // initial render
-    renderMaker();
 
     // ===== LIBRARY =====
     async function loadMyGames(){
@@ -421,7 +483,7 @@
         <button data-act="room" class="primary">Make Room</button>
         <button data-act="copy" class="ghost">Copy ID</button>`;
         card.querySelector('[data-act="edit"]').addEventListener('click', async()=>{
-          const gs = await get(dbRef(db, `games/${gid}`)); if(gs.exists()){ mk_state = { gameId: gid, title: gs.val().title, tilesCount: gs.val().tilesCount||gs.val().tiles?.length||40, tiles: gs.val().tiles||[] }; renderMaker(); $$('.tab[data-tab="maker"]')[0].click(); toast('Loaded into Maker'); }
+          const gs = await get(dbRef(db, `games/${gid}`)); if(gs.exists()){ const gv=gs.val(); mk_state = { gameId: gid, title: gv.title, tilesCount: gv.tilesCount||gv.tiles?.length||40, tiles: gv.tiles||[], decks: gv.decks||mk_state.decks }; renderMaker(); $$('.tab[data-tab="maker"]')[0].click(); toast('Loaded into Maker'); }
         });
         card.querySelector('[data-act="room"]').addEventListener('click', ()=>{
           $('#pl_gameSelect').value = gid; $$('.tab[data-tab="play"]')[0].click(); toast('Use Create Room to start');
@@ -455,7 +517,7 @@
         const pill = document.createElement('div'); pill.className='pill';
         const av = document.createElement('div'); av.className='avatar'; if(p.avatarUrl){ av.style.backgroundImage = `url(${p.avatarUrl})`; }
         const dot = document.createElement('div'); dot.className='dot'; dot.style.background = p.color||'#6fa8ff';
-        const name = document.createElement('div'); name.textContent = `${p.name||uid.slice(0,4)} • $${p.money|0} • @${p.position|0}`;
+        const name = document.createElement('div'); name.textContent = `${p.name||uid.slice(0,4)} • $${p.money|0} • @${p.position|0} • ${p.career?(''+p.career+' ($'+(p.salary||0)+')'):'No career'}`;
         pill.appendChild(av); pill.appendChild(dot); pill.appendChild(name); pRoot.appendChild(pill);
       });
 
@@ -522,7 +584,7 @@
       const avatarUrl = await uploadAvatarIfNeeded();
 
       const pRef = dbRef(db, `rooms/${roomId}/players/${myUid}`);
-      await update(pRef, { name, color, avatarUrl: avatarUrl||null, money: 100, position: 0, joinedAt: serverTimestamp() });
+      await update(pRef, { name, color, avatarUrl: avatarUrl||null, money: 100, position: 0, family: 0, career: null, salary: 0, joinedAt: serverTimestamp() });
       currentRoomId = roomId; myPlayerRef = pRef;
 
       // subscribe to room
@@ -557,8 +619,8 @@
       if(!isHost || !currentRoomId) return;
       const players = Object.keys(currentRoom.players||{});
       const updates = {};
-      players.forEach(uid=>{ updates[`rooms/${currentRoomId}/players/${uid}/position`] = 0; updates[`rooms/${currentRoomId}/players/${uid}/money`] = 100; });
-      updates[`rooms/${currentRoomId}/dice/last`] = 0; updates[`rooms/${currentRoomId}/started`] = false;
+      players.forEach(uid=>{ updates[`rooms/${currentRoomId}/players/${uid}/position`] = 0; updates[`rooms/${currentRoomId}/players/${uid}/money`] = 100; updates[`rooms/${currentRoomId}/players/${uid}/salary`] = 0; updates[`rooms/${currentRoomId}/players/${uid}/career`] = null; updates[`rooms/${currentRoomId}/players/${uid}/family`] = 0; });
+      updates[`rooms/${currentRoomId}/dice/last`] = 0; updates[`rooms/${currentRoomId}/started`] = false; updates[`rooms/${currentRoomId}/winner`] = null;
       await update(dbRef(db), updates); toast('Room reset');
     }
 
@@ -568,6 +630,25 @@
       const curIdx = currentRoom.turn?.idx||0; const nextIdx = (curIdx+1)%order.length; return { uid: order[nextIdx], idx: nextIdx };
     }
 
+    async function drawFromDeck(uid, deck){
+      const g = currentGame;
+      const p = currentRoom.players?.[uid];
+      if(!g?.decks || !g.decks[deck] || g.decks[deck].length===0){ toast(`Deck '${deck}' empty`); return; }
+      const pool = g.decks[deck];
+      const card = pool[Math.floor(Math.random()*pool.length)];
+      if(deck==='career'){
+        await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { career: card.title, salary: Number(card.salary)||0 });
+        toast(`${p.name||uid} chose career: ${card.title} (salary $${card.salary||0})`);
+      } else {
+        const money = Number(card.money||0);
+        const jump  = Number(card.jump||0);
+        const pos = p.position||0;
+        const newPos = Math.max(0, Math.min(currentGame.tiles.length-1, pos + jump));
+        await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { money: (p.money||0)+money, position: newPos });
+        let note = `${card.title}`; if(money) note += ` ${money>0?'+':''}${money}`; if(jump) note += ` jump ${jump}`; toast(note);
+      }
+    }
+
     async function applyTileEffects(uid, idx){
       const t = currentGame.tiles[idx];
       let moneyΔ = Number(t.money||0);
@@ -575,7 +656,19 @@
       if(t.action==='jump') newPos = Math.max(0, Math.min(currentGame.tiles.length-1, newPos + (Number(t.actionValue)||0)));
       if(t.action==='goto') newPos = Math.max(0, Math.min(currentGame.tiles.length-1, Number(t.actionValue)||0));
 
-      const p = currentRoom.players?.[uid]||{ money:0 };
+      const p = currentRoom.players?.[uid]||{ money:0, family:0, career:null, salary:0 };
+
+      if(t.action==='payday') moneyΔ += (p.salary||0);
+      if(t.action==='family') { const add = (Number(t.actionValue)||1); await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { family: (p.family||0)+add }); }
+      if(t.action==='draw' || t.action==='career') {
+        const deckName = (t.action==='career')? 'career' : (t.actionDeck||'action');
+        await drawFromDeck(uid, deckName);
+      }
+      if(t.action==='finish'){
+        await update(dbRef(db, `rooms/${currentRoomId}`), { started:false, winner: uid });
+        toast(`${p.name||uid} reached Finish!`);
+      }
+
       const newMoney = (p.money|0) + moneyΔ;
       await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { position: newPos, money: newMoney });
       if(moneyΔ!==0){ toast(`${p.name||uid} ${moneyΔ>0?'+':''}${moneyΔ}`); }
@@ -593,7 +686,7 @@
       await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { position: dest });
       await applyTileEffects(myUid, dest);
 
-      // advance turn
+      // advance turn (Stop tile currently cosmetic only)
       const nt = nextTurn();
       await update(dbRef(db, `rooms/${currentRoomId}/`), { turn: nt });
     }
@@ -603,7 +696,7 @@
     $('#pl_join').addEventListener('click', async()=>{
       const rid = $('#pl_roomId').value.trim(); if(!rid){ toast('Enter a room ID'); return; }
       await joinRoom(rid);
-      isHost = currentRoom?.hostUid===myUid; // may update after initial fetch
+      isHost = currentRoom?.hostUid===myUid; 
     });
     $('#pl_leave').addEventListener('click', leaveRoom);
     $('#host_start').addEventListener('click', hostStart);
