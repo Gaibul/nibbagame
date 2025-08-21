@@ -214,7 +214,7 @@
     import { getDatabase, ref as dbRef, set, update, onValue, get, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
     import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
-    // ===== Your Firebase config (from your message) =====
+    // ===== Your Firebase config =====
     const firebaseConfig = {
       apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
       authDomain: "nomercy-8269a.firebaseapp.com",
@@ -227,7 +227,7 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    try { getAnalytics(app); } catch(e) { /* analytics optional */ }
+    try { getAnalytics(app); } catch(e) {}
     const auth = getAuth(app);
     const db = getDatabase(app);
     const storage = getStorage(app);
@@ -249,7 +249,7 @@
           if(!id) id = u.searchParams.get('id') || '';
           if(id) return `https://drive.google.com/uc?export=download&id=${id}`;
         }
-      }catch(e){ /* ignore */ }
+      }catch(e){}
       return url;
     };
 
@@ -257,15 +257,24 @@
     let myUid = null;
     signInAnonymously(auth).catch(console.warn);
     onAuthStateChanged(auth, (user)=>{
-      if(user){ myUid = user.uid; $('#lb_user').textContent = `Signed in as ${myUid.slice(0,6)}… (anon)`; loadMyGames(); refreshGameSelect(); renderMaker(); }
+      if(user){
+        myUid = user.uid;
+        $('#lb_user').textContent = `Signed in as ${myUid.slice(0,6)}… (anon)`;
+        loadMyGames();
+        refreshGameSelect();
+        renderMaker();
+      }
     });
 
     // ===== MAKER state =====
-    let mk_state = { gameId:'', title:'', tilesCount:40, tiles:[], decks:{
-      career:[{title:'Engineer', salary:40},{title:'Designer', salary:35},{title:'Teacher', salary:30}],
-      action:[{title:'Win a contest', money:20, jump:0},{title:'Pay a fine', money:-15, jump:0}],
-      life:[{title:'Good deed bonus', money:10},{title:'Unexpected expense', money:-10}]
-    } };
+    let mk_state = {
+      gameId:'', title:'', tilesCount:40, tiles:[],
+      decks:{
+        career:[{title:'Engineer', salary:40},{title:'Designer', salary:35},{title:'Teacher', salary:30}],
+        action:[{title:'Win a contest', money:20, jump:0},{title:'Pay a fine', money:-15, jump:0}],
+        life:[{title:'Good deed bonus', money:10},{title:'Unexpected expense', money:-10}]
+      }
+    };
 
     const renderMaker = () => {
       if(!$('#mk_title')) return;
@@ -279,13 +288,10 @@
       }
       if(mk_state.tiles.length > mk_state.tilesCount){ mk_state.tiles.length = mk_state.tilesCount; }
 
-      // fill deck textareas
-      if($('#mk_deck_career')) $('#mk_deck_career').value = (mk_state.decks.career||[]).map(c=>`${c.title}|${c.salary}`).join('
-');
-      if($('#mk_deck_action')) $('#mk_deck_action').value = (mk_state.decks.action||[]).map(c=>`${c.title}|${c.money||0}|${c.jump||0}`).join('
-');
-      if($('#mk_deck_life'))   $('#mk_deck_life').value   = (mk_state.decks.life||[]).map(c=>`${c.title}|${c.money||0}`).join('
-');
+      // fill deck textareas (FIXED)
+      if($('#mk_deck_career')) $('#mk_deck_career').value = (mk_state.decks.career||[]).map(c=>`${c.title}|${c.salary}`).join('\n');
+      if($('#mk_deck_action')) $('#mk_deck_action').value = (mk_state.decks.action||[]).map(c=>`${c.title}|${c.money||0}|${c.jump||0}`).join('\n');
+      if($('#mk_deck_life'))   $('#mk_deck_life').value   = (mk_state.decks.life||[]).map(c=>`${c.title}|${c.money||0}`).join('\n');
 
       // tile editor list
       const root = $('#mk_tiles');
@@ -430,12 +436,22 @@
     $('#mk_title').addEventListener('input', e=>{ mk_state.title = e.target.value; });
     $('#mk_tilesCount').addEventListener('change', e=>{ mk_state.tilesCount = Math.max(10, Math.min(200, Number(e.target.value))); renderMaker(); });
 
-    function parseCareer(txt){ return (txt||'').split(/
-+/).map(l=>l.trim()).filter(Boolean).map(l=>{ const [title,sal] = l.split('|'); return {title:title?.trim()||'Career', salary:Number(sal)||0}; }); }
-    function parseAction(txt){ return (txt||'').split(/
-+/).map(l=>l.trim()).filter(Boolean).map(l=>{ const [title,m,j] = l.split('|'); return {title:title?.trim()||'Action', money:Number(m)||0, jump:Number(j)||0}; }); }
-    function parseLife(txt){ return (txt||'').split(/
-+/).map(l=>l.trim()).filter(Boolean).map(l=>{ const [title,m] = l.split('|'); return {title:title?.trim()||'Life', money:Number(m)||0}; }); }
+    // (FIXED) deck parsers
+    function parseCareer(txt){
+      return (txt||'')
+        .split(/\n+/).map(l=>l.trim()).filter(Boolean)
+        .map(l=>{ const [title,sal] = l.split('|'); return {title:(title||'Career').trim(), salary:Number(sal)||0}; });
+    }
+    function parseAction(txt){
+      return (txt||'')
+        .split(/\n+/).map(l=>l.trim()).filter(Boolean)
+        .map(l=>{ const [title,m,j] = l.split('|'); return {title:(title||'Action').trim(), money:Number(m)||0, jump:Number(j)||0}; });
+    }
+    function parseLife(txt){
+      return (txt||'')
+        .split(/\n+/).map(l=>l.trim()).filter(Boolean)
+        .map(l=>{ const [title,m] = l.split('|'); return {title:(title||'Life').trim(), money:Number(m)||0}; });
+    }
 
     $('#mk_applyDecks')?.addEventListener('click',()=>{
       mk_state.decks.career = parseCareer($('#mk_deck_career').value);
@@ -446,12 +462,10 @@
 
     $('#mk_save').addEventListener('click', async ()=>{
       if(!myUid){ toast('Sign-in not ready'); return; }
-      // normalize
       mk_state.title = $('#mk_title').value.trim() || 'Untitled Life Game';
       mk_state.tilesCount = Number($('#mk_tilesCount').value)||40;
       mk_state.tiles.forEach((t,i)=> t.idx = i);
 
-      // ensure decks captured
       mk_state.decks.career = parseCareer($('#mk_deck_career').value);
       mk_state.decks.action = parseAction($('#mk_deck_action').value);
       mk_state.decks.life   = parseLife($('#mk_deck_life').value);
@@ -483,7 +497,12 @@
         <button data-act="room" class="primary">Make Room</button>
         <button data-act="copy" class="ghost">Copy ID</button>`;
         card.querySelector('[data-act="edit"]').addEventListener('click', async()=>{
-          const gs = await get(dbRef(db, `games/${gid}`)); if(gs.exists()){ const gv=gs.val(); mk_state = { gameId: gid, title: gv.title, tilesCount: gv.tilesCount||gv.tiles?.length||40, tiles: gv.tiles||[], decks: gv.decks||mk_state.decks }; renderMaker(); $$('.tab[data-tab="maker"]')[0].click(); toast('Loaded into Maker'); }
+          const gs = await get(dbRef(db, `games/${gid}`));
+          if(gs.exists()){
+            const gv=gs.val();
+            mk_state = { gameId: gid, title: gv.title, tilesCount: gv.tilesCount||gv.tiles?.length||40, tiles: gv.tiles||[], decks: gv.decks||mk_state.decks };
+            renderMaker(); $$('.tab[data-tab="maker"]')[0].click(); toast('Loaded into Maker');
+          }
         });
         card.querySelector('[data-act="room"]').addEventListener('click', ()=>{
           $('#pl_gameSelect').value = gid; $$('.tab[data-tab="play"]')[0].click(); toast('Use Create Room to start');
@@ -497,14 +516,20 @@
       const sel = $('#pl_gameSelect'); sel.innerHTML='';
       const snap = await get(dbRef(db, `users/${myUid}/myGames`));
       const entries = snap.exists()? Object.entries(snap.val()) : [];
-      if(entries.length===0){ const opt = document.createElement('option'); opt.value=''; opt.textContent='— no saved games —'; sel.appendChild(opt); return; }
-      for (const [gid, meta] of entries){ const opt = document.createElement('option'); opt.value=gid; opt.textContent = `${meta.title||gid} (${gid})`; sel.appendChild(opt); }
+      if(entries.length===0){
+        const opt = document.createElement('option'); opt.value=''; opt.textContent='— no saved games —'; sel.appendChild(opt); return;
+      }
+      for (const [gid, meta] of entries){
+        const opt = document.createElement('option'); opt.value=gid; opt.textContent = `${meta.title||gid} (${gid})`; sel.appendChild(opt);
+      }
     }
 
     // ===== PLAY / ROOMS =====
     let currentRoomId = null; let currentRoom = null; let currentGame = null; let isHost=false; let myPlayerRef=null; let unsubRoom=null;
 
-    async function loadGameById(gameId){ const s = await get(dbRef(db, `games/${gameId}`)); return s.exists()? s.val() : null; }
+    async function loadGameById(gameId){
+      const s = await get(dbRef(db, `games/${gameId}`)); return s.exists()? s.val() : null;
+    }
 
     function renderRoomUI(){
       $('#room_info').textContent = currentRoomId? `${currentRoom?.name||''} • ${currentRoomId}`:'—';
@@ -619,15 +644,25 @@
       if(!isHost || !currentRoomId) return;
       const players = Object.keys(currentRoom.players||{});
       const updates = {};
-      players.forEach(uid=>{ updates[`rooms/${currentRoomId}/players/${uid}/position`] = 0; updates[`rooms/${currentRoomId}/players/${uid}/money`] = 100; updates[`rooms/${currentRoomId}/players/${uid}/salary`] = 0; updates[`rooms/${currentRoomId}/players/${uid}/career`] = null; updates[`rooms/${currentRoomId}/players/${uid}/family`] = 0; });
-      updates[`rooms/${currentRoomId}/dice/last`] = 0; updates[`rooms/${currentRoomId}/started`] = false; updates[`rooms/${currentRoomId}/winner`] = null;
+      players.forEach(uid=>{
+        updates[`rooms/${currentRoomId}/players/${uid}/position`] = 0;
+        updates[`rooms/${currentRoomId}/players/${uid}/money`] = 100;
+        updates[`rooms/${currentRoomId}/players/${uid}/salary`] = 0;
+        updates[`rooms/${currentRoomId}/players/${uid}/career`] = null;
+        updates[`rooms/${currentRoomId}/players/${uid}/family`] = 0;
+      });
+      updates[`rooms/${currentRoomId}/dice/last`] = 0;
+      updates[`rooms/${currentRoomId}/started`] = false;
+      updates[`rooms/${currentRoomId}/winner`] = null;
       await update(dbRef(db), updates); toast('Room reset');
     }
 
     function nextTurn(){
       const order = Object.keys(currentRoom.players||{});
       if(order.length===0) return { uid:null, idx:0 };
-      const curIdx = currentRoom.turn?.idx||0; const nextIdx = (curIdx+1)%order.length; return { uid: order[nextIdx], idx: nextIdx };
+      const curIdx = currentRoom.turn?.idx||0;
+      const nextIdx = (curIdx+1)%order.length;
+      return { uid: order[nextIdx], idx: nextIdx };
     }
 
     async function drawFromDeck(uid, deck){
@@ -686,7 +721,7 @@
       await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { position: dest });
       await applyTileEffects(myUid, dest);
 
-      // advance turn (Stop tile currently cosmetic only)
+      // advance turn (Stop tile is cosmetic for now)
       const nt = nextTurn();
       await update(dbRef(db, `rooms/${currentRoomId}/`), { turn: nt });
     }
@@ -696,7 +731,7 @@
     $('#pl_join').addEventListener('click', async()=>{
       const rid = $('#pl_roomId').value.trim(); if(!rid){ toast('Enter a room ID'); return; }
       await joinRoom(rid);
-      isHost = currentRoom?.hostUid===myUid; 
+      isHost = currentRoom?.hostUid===myUid;
     });
     $('#pl_leave').addEventListener('click', leaveRoom);
     $('#host_start').addEventListener('click', hostStart);
@@ -706,6 +741,8 @@
     // Keyboard: press R to roll
     window.addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='r'){ if(!$('#pl_roll').disabled) rollDice(); } });
 
+    // Ensure Maker renders at least once even if auth lags
+    document.addEventListener('DOMContentLoaded', ()=>{ try { renderMaker(); } catch(e){} });
   </script>
 </body>
 </html>
