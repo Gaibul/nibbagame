@@ -74,12 +74,19 @@
     .feed{background:#0f1432;border:1px solid #2a3563;border-radius:12px;padding:10px;overflow:auto}
     .deckbar button{width:100%}
 
-    /* Auto-fit: show all tiles across without scroll */
-    .board.fit{ 
-      grid-auto-columns: calc((100% - (var(--cols,1) - 1) * var(--gap)) / var(--cols,1));
-      overflow:hidden; 
+    /* --- Auto-fit full-screen board (no scroll, multi-row) --- */
+    .board.fit{
+      --gap:8px;
+      display:grid;
+      grid-auto-flow: row;
+      gap: var(--gap);
+      overflow:hidden;
     }
-    .board.fit .space{ width:auto; height:auto; aspect-ratio:1/1; } /* keep tiles square */
+    .board.fit .space{
+      width:100%;
+      height:100%;
+      border-radius:12px;
+    }
   </style>
 </head>
 <body>
@@ -569,7 +576,37 @@
 
     async function loadGameById(gameId){ const s = await get(dbRef(db, `games/${gameId}`)); return s.exists()? s.val() : null; }
 
-    // Helpers to render to both lobby and full-screen
+    // Fit helper: compute cols/rows/tile size so all N tiles fit (square tiles)
+    function layoutBoardToFit(b, n){
+      if(!b || !n) return;
+      const gapVar = getComputedStyle(b).getPropertyValue('--gap').trim();
+      const g = Number(gapVar.replace('px','')) || 8;
+      const rect = b.getBoundingClientRect();
+      const W = Math.max(0, rect.width);
+      const H = Math.max(0, rect.height);
+      if(!W || !H) return;
+
+      let cols = Math.ceil(Math.sqrt(n * (W / H)));
+      cols = Math.max(1, Math.min(n, cols));
+      let rows = Math.ceil(n / cols);
+
+      const tileW = Math.floor((W - (cols - 1) * g) / cols);
+      const tileH = Math.floor((H - (rows - 1) * g) / rows);
+      let tile = Math.max(10, Math.min(tileW, tileH));
+
+      const maxCols = Math.max(1, Math.floor((W + g) / (tile + g)));
+      cols = Math.min(cols, maxCols);
+      rows = Math.ceil(n / cols);
+
+      const finalTileW = Math.floor((W - (cols - 1) * g) / cols);
+      const finalTileH = Math.floor((H - (rows - 1) * g) / rows);
+      tile = Math.max(10, Math.min(finalTileW, finalTileH));
+
+      b.style.gridTemplateColumns = `repeat(${cols}, ${tile}px)`;
+      b.style.gridAutoRows       = `${tile}px`;
+    }
+
+    // Render helpers for both lobby and full-screen boards
     function renderPlayersTo(containerId){
       const root = document.getElementById(containerId); if(!root) return;
       root.innerHTML='';
@@ -585,7 +622,6 @@
     function renderBoardTo(containerId, fit=false){
       const b = document.getElementById(containerId); if(!b || !currentGame) return; 
       b.classList.toggle('fit', fit);
-      b.style.setProperty('--cols', currentGame.tiles.length);
       b.innerHTML='';
       const players = currentRoom?.players ? Object.entries(currentRoom.players) : [];
       currentGame.tiles.forEach((t, idx)=>{
@@ -601,6 +637,7 @@
         });
         b.appendChild(s);
       });
+      if(fit){ layoutBoardToFit(b, currentGame.tiles.length); }
     }
 
     function renderRoomUI(){
@@ -610,9 +647,6 @@
       renderPlayersTo('pl_players');
       renderBoardTo('pl_board', false);
 
-      // controls & turn
-      $('#host_start').style.display = isHost ? 'inline-block' : 'none';
-      $('#host_reset').style.display = isHost ? 'inline-block' : 'none';
       const turnUid = currentRoom?.turn?.uid; $('#pl_turn').textContent = turnUid? (currentRoom.players?.[turnUid]?.name || turnUid.slice(0,6)) : '—';
       $('#pl_dice').textContent = currentRoom?.dice?.last || '—';
       const myTurn = turnUid && turnUid===myUid && currentRoom?.started;
@@ -624,7 +658,7 @@
       $('#rf_turn').textContent = turnUid? (currentRoom.players?.[turnUid]?.name || turnUid.slice(0,6)) : '—';
       $('#rf_dice').textContent = currentRoom?.dice?.last || '—';
       renderPlayersTo('rf_players');
-      renderBoardTo('rf_board', true);  // << auto-fit here
+      renderBoardTo('rf_board', true);  // auto-fit here
 
       const canControl = !!(currentRoom?.started && (isHost || (turnUid===myUid)));
       ['rf_roll','rf_draw_action','rf_draw_life','rf_choose_career'].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled = !canControl; });
@@ -795,6 +829,10 @@
       rf.hidden = !show;
       document.querySelector('header').style.display = show ? 'none' : '';
       ['maker','library','play'].forEach(id=>{ const el=document.getElementById(id); if(el) el.hidden = show; });
+      if(show && currentGame){ // ensure initial fit
+        const b = document.getElementById('rf_board');
+        layoutBoardToFit(b, currentGame.tiles.length);
+      }
     }
     document.getElementById('rf_exit')?.addEventListener('click', ()=> showRoomFull(false));
     document.getElementById('rf_roll')?.addEventListener('click', rollDice);
@@ -806,6 +844,12 @@
     });
     document.getElementById('rf_choose_career')?.addEventListener('click', async()=>{
       if(!currentRoom?.turn?.uid) return; const c = await drawFromDeck(currentRoom.turn.uid,'career'); if(c) document.getElementById('rf_lastcard').textContent = `Career: ${c.title} (salary $${c.salary||0})`;
+    });
+
+    // Keep the full-screen board fitted on window resize.
+    window.addEventListener('resize', ()=>{
+      const b = document.getElementById('rf_board');
+      if(b && !b.hidden && currentGame) layoutBoardToFit(b, currentGame.tiles.length);
     });
 
     // Keyboard shortcut: R to roll
