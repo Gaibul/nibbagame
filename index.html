@@ -64,6 +64,15 @@
 
     .list { display:grid; gap:10px; }
     .card { background:#111633; border:1px solid #24305a; border-radius:14px; padding:12px; display:flex; align-items:center; gap:10px; }
+
+    /* ===== Full-screen Play View ===== */
+    .roombar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #22284a;background:#0e1330;position:sticky;top:0;z-index:10}
+    .roomgrid{display:grid;grid-template-columns:1fr 330px;gap:12px;height:calc(100vh - 56px);padding:12px}
+    .board.big{grid-auto-columns:110px;height:100%;border-radius:18px}
+    .side{display:grid;grid-template-rows:auto auto 1fr;gap:10px}
+    .bigdice{font-size:22px;padding:14px 18px;border-radius:14px}
+    .feed{background:#0f1432;border:1px solid #2a3563;border-radius:12px;padding:10px;overflow:auto}
+    .deckbar button{width:100%}
   </style>
 </head>
 <body>
@@ -146,7 +155,7 @@
       <div id="lb_list" class="list"></div>
     </section>
 
-    <!-- PLAY -->
+    <!-- PLAY (lobby view) -->
     <section id="play" class="panel" role="tabpanel" hidden>
       <div class="grid2">
         <div class="panel">
@@ -204,6 +213,39 @@
     </section>
   </main>
 
+  <!-- FULL-SCREEN ROOM VIEW -->
+  <section id="room_full" hidden>
+    <div class="roombar">
+      <div>
+        <strong>Room:</strong> <span id="rf_room">—</span>
+        <div class="muted" id="rf_game">—</div>
+      </div>
+      <div class="row">
+        <button id="rf_exit" class="ghost">Exit</button>
+      </div>
+    </div>
+    <div class="roomgrid">
+      <div id="rf_board" class="board big"></div>
+      <div class="side">
+        <div id="rf_players" class="players"></div>
+        <div class="row" style="gap:10px;align-items:center;">
+          <button id="rf_roll" class="primary bigdice">🎲 Roll</button>
+          <div>Dice: <strong id="rf_dice">—</strong></div>
+          <div>Turn: <span id="rf_turn">—</span></div>
+        </div>
+        <div class="feed">
+          <div class="row deckbar" style="gap:8px; margin-bottom:8px;">
+            <button id="rf_draw_action">Draw Action</button>
+            <button id="rf_draw_life">Draw Life</button>
+            <button id="rf_choose_career">Choose Career</button>
+          </div>
+          <div class="muted" id="rf_deck_counts">—</div>
+          <div style="margin-top:8px"><strong>Last card:</strong> <span id="rf_lastcard">—</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <div class="toast" id="toast"></div>
 
   <script type="module">
@@ -250,18 +292,20 @@
       return url;
     };
 
+    // ===== Auth (anonymous)
     let myUid = null;
     signInAnonymously(auth).catch(console.warn);
     onAuthStateChanged(auth, (user)=>{
       if(user){
         myUid = user.uid;
-        $('#lb_user').textContent = `Signed in as ${myUid.slice(0,6)}… (anon)`;
+        $('#lb_user') && ($('#lb_user').textContent = `Signed in as ${myUid.slice(0,6)}… (anon)`);
         loadMyGames();
         refreshGameSelect();
         renderMaker();
       }
     });
 
+    // ===== Maker state
     let mk_state = {
       gameId:'', title:'', tilesCount:40, tiles:[],
       decks:{
@@ -515,22 +559,22 @@
 
     async function loadGameById(gameId){ const s = await get(dbRef(db, `games/${gameId}`)); return s.exists()? s.val() : null; }
 
-    function renderRoomUI(){
-      $('#room_info').textContent = currentRoomId? `${currentRoom?.name||''} • ${currentRoomId}`:'—';
-      $('#game_info').textContent = currentGame? `${currentGame.title} • ${currentGame.tilesCount} tiles`:'—';
-
-      const pRoot = $('#pl_players'); pRoot.innerHTML='';
+    // Helpers to render to both lobby and full-screen
+    function renderPlayersTo(containerId){
+      const root = document.getElementById(containerId); if(!root) return;
+      root.innerHTML='';
       const players = currentRoom?.players ? Object.entries(currentRoom.players) : [];
       players.forEach(([uid, p])=>{
         const pill = document.createElement('div'); pill.className='pill';
         const av = document.createElement('div'); av.className='avatar'; if(p.avatarUrl){ av.style.backgroundImage = `url(${p.avatarUrl})`; }
         const dot = document.createElement('div'); dot.className='dot'; dot.style.background = p.color||'#6fa8ff';
         const name = document.createElement('div'); name.textContent = `${p.name||uid.slice(0,4)} • $${p.money|0} • @${p.position|0} • ${p.career?(''+p.career+' ($'+(p.salary||0)+')'):'No career'}`;
-        pill.appendChild(av); pill.appendChild(dot); pill.appendChild(name); pRoot.appendChild(pill);
+        pill.appendChild(av); pill.appendChild(dot); pill.appendChild(name); root.appendChild(pill);
       });
-
-      const b = $('#pl_board'); b.innerHTML='';
-      if(!currentGame){ return; }
+    }
+    function renderBoardTo(containerId){
+      const b = document.getElementById(containerId); if(!b || !currentGame) return; b.innerHTML='';
+      const players = currentRoom?.players ? Object.entries(currentRoom.players) : [];
       currentGame.tiles.forEach((t, idx)=>{
         const s = document.createElement('div'); s.className='space'; s.style.background = t.color||'#121842';
         if(t.imageUrl){ s.style.backgroundImage = `url(${t.imageUrl})`; s.style.backgroundSize='cover'; s.style.backgroundPosition='center'; s.style.opacity=0.92; }
@@ -544,13 +588,39 @@
         });
         b.appendChild(s);
       });
+    }
 
+    function renderRoomUI(){
+      $('#room_info').textContent = currentRoomId? `${currentRoom?.name||''} • ${currentRoomId}`:'—';
+      $('#game_info').textContent = currentGame? `${currentGame.title} • ${currentGame.tilesCount} tiles`:'—';
+
+      renderPlayersTo('pl_players');
+
+      renderBoardTo('pl_board');
+
+      // controls & turn
       $('#host_start').style.display = isHost ? 'inline-block' : 'none';
       $('#host_reset').style.display = isHost ? 'inline-block' : 'none';
       const turnUid = currentRoom?.turn?.uid; $('#pl_turn').textContent = turnUid? (currentRoom.players?.[turnUid]?.name || turnUid.slice(0,6)) : '—';
       $('#pl_dice').textContent = currentRoom?.dice?.last || '—';
       const myTurn = turnUid && turnUid===myUid && currentRoom?.started;
       $('#pl_roll').disabled = !myTurn;
+
+      // mirror to full view if present
+      $('#rf_room').textContent = currentRoomId? `${currentRoom?.name||''} • ${currentRoomId}`:'—';
+      $('#rf_game').textContent = currentGame? `${currentGame.title} • ${currentGame.tilesCount} tiles`:'—';
+      $('#rf_turn').textContent = turnUid? (currentRoom.players?.[turnUid]?.name || turnUid.slice(0,6)) : '—';
+      $('#rf_dice').textContent = currentRoom?.dice?.last || '—';
+      renderPlayersTo('rf_players');
+      renderBoardTo('rf_board');
+
+      const canControl = !!(currentRoom?.started && (isHost || (turnUid===myUid)));
+      ['rf_roll','rf_draw_action','rf_draw_life','rf_choose_career'].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled = !canControl; });
+      const tp = turnUid? currentRoom.players?.[turnUid] : null;
+      const chooseBtn = document.getElementById('rf_choose_career'); if(chooseBtn) chooseBtn.disabled = chooseBtn.disabled || !!(tp?.career);
+
+      const dc = currentGame?.decks||{}; const dcTxt = `Action: ${(dc.action?.length||0)} • Life: ${(dc.life?.length||0)} • Career: ${(dc.career?.length||0)}`;
+      const dcEl = document.getElementById('rf_deck_counts'); if(dcEl) dcEl.textContent = dcTxt;
     }
 
     async function createRoom(){
@@ -596,6 +666,7 @@
         currentRoom = snap.val();
         if(!currentGame){ currentGame = await loadGameById(currentRoom.gameId); }
         renderRoomUI();
+        if(currentRoom.started) showRoomFull(true);
       });
       unsubRoom = ()=> off();
       toast(`Joined room ${roomId}`);
@@ -605,6 +676,7 @@
       if(!currentRoomId) return;
       await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { leftAt: serverTimestamp() });
       currentRoomId = null; currentRoom=null; currentGame=null; isHost=false; myPlayerRef=null; renderRoomUI();
+      showRoomFull(false);
       toast('Left room');
     }
 
@@ -614,6 +686,7 @@
       if(players.length<1){ toast('Need at least 1 player'); return; }
       const turn = { uid: players[0], idx:0 };
       await update(dbRef(db, `rooms/${currentRoomId}`), { started:true, turn });
+      showRoomFull(true);
     }
 
     async function hostReset(){
@@ -623,6 +696,7 @@
       players.forEach(uid=>{ updates[`rooms/${currentRoomId}/players/${uid}/position`] = 0; updates[`rooms/${currentRoomId}/players/${uid}/money`] = 100; updates[`rooms/${currentRoomId}/players/${uid}/salary`] = 0; updates[`rooms/${currentRoomId}/players/${uid}/career`] = null; updates[`rooms/${currentRoomId}/players/${uid}/family`] = 0; });
       updates[`rooms/${currentRoomId}/dice/last`] = 0; updates[`rooms/${currentRoomId}/started`] = false; updates[`rooms/${currentRoomId}/winner`] = null;
       await update(dbRef(db), updates); toast('Room reset');
+      showRoomFull(false);
     }
 
     function nextTurn(){
@@ -634,20 +708,21 @@
     async function drawFromDeck(uid, deck){
       const g = currentGame;
       const p = currentRoom.players?.[uid];
-      if(!g?.decks || !g.decks[deck] || g.decks[deck].length===0){ toast(`Deck '${deck}' empty`); return; }
+      if(!g?.decks || !g.decks[deck] || g.decks[deck].length===0){ toast(`Deck '${deck}' empty`); return null; }
       const pool = g.decks[deck];
       const card = pool[Math.floor(Math.random()*pool.length)];
       if(deck==='career'){
         await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { career: card.title, salary: Number(card.salary)||0 });
-        toast(`${p.name||uid} chose career: ${card.title} (salary $${card.salary||0})`);
+        toast(`${p?.name||uid} chose career: ${card.title} (salary $${card.salary||0})`);
       } else {
         const money = Number(card.money||0);
         const jump  = Number(card.jump||0);
-        const pos = p.position||0;
+        const pos = (p?.position)||0;
         const newPos = Math.max(0, Math.min(currentGame.tiles.length-1, pos + jump));
-        await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { money: (p.money||0)+money, position: newPos });
-        let note = `${card.title}`; if(money) note += ` ${money>0?'+':''}${money}`; if(jump) note += ` jump ${jump}`; toast(note);
+        await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { money: ((p?.money)||0)+money, position: newPos });
+        let note = `${card.title}`; if(money) note += ` ${money>0?'+':''}${money}`; if(jump) note += ` (jump ${jump})`; toast(note);
       }
+      return card;
     }
 
     async function applyTileEffects(uid, idx){
@@ -702,8 +777,27 @@
     $('#host_reset').addEventListener('click', hostReset);
     $('#pl_roll').addEventListener('click', rollDice);
 
+    // Full view controls
+    function showRoomFull(show){
+      const rf = document.getElementById('room_full'); if(!rf) return;
+      rf.hidden = !show;
+      document.querySelector('header').style.display = show ? 'none' : '';
+      ['maker','library','play'].forEach(id=>{ const el=document.getElementById(id); if(el) el.hidden = show; });
+    }
+    document.getElementById('rf_exit')?.addEventListener('click', ()=> showRoomFull(false));
+    document.getElementById('rf_roll')?.addEventListener('click', rollDice);
+    document.getElementById('rf_draw_action')?.addEventListener('click', async()=>{
+      if(!currentRoom?.turn?.uid) return; const c = await drawFromDeck(currentRoom.turn.uid,'action'); if(c) document.getElementById('rf_lastcard').textContent = `Action: ${c.title}${c.money?` ${(c.money>0?'+':'')+c.money}`:''}${c.jump?` (jump ${c.jump})`:''}`;
+    });
+    document.getElementById('rf_draw_life')?.addEventListener('click', async()=>{
+      if(!currentRoom?.turn?.uid) return; const c = await drawFromDeck(currentRoom.turn.uid,'life'); if(c) document.getElementById('rf_lastcard').textContent = `Life: ${c.title}${c.money?` ${(c.money>0?'+':'')+c.money}`:''}`;
+    });
+    document.getElementById('rf_choose_career')?.addEventListener('click', async()=>{
+      if(!currentRoom?.turn?.uid) return; const c = await drawFromDeck(currentRoom.turn.uid,'career'); if(c) document.getElementById('rf_lastcard').textContent = `Career: ${c.title} (salary $${c.salary||0})`;
+    });
+
     // Keyboard shortcut: R to roll
-    window.addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='r'){ if(!$('#pl_roll').disabled) rollDice(); } });
+    window.addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='r'){ if(!$('#pl_roll').disabled || !document.getElementById('rf_roll')?.disabled) rollDice(); } });
 
     // Tabs
     function showTab(name){
