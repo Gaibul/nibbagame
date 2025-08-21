@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Life Game Maker — Multiplayer (Firebase)</title>
+  <style>
+    :root { --bg:#0f1222; --panel:#171b34; --muted:#8ea1b1; --text:#e8ecf1; --accent:#7bd389; --accent2:#6fa8ff; --danger:#ff6b6b; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover{ text-decoration: underline; }
+
+    header { position: sticky; top: 0; z-index: 5; background: linear-gradient(180deg, rgba(15,18,34,.98), rgba(15,18,34,.80)); border-bottom: 1px solid #222846; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px 18px; }
+    h1 { margin: 0; font-size: 20px; display:flex; align-items:center; gap:10px; }
+    .badge { font-size:12px; background:#243050; color:#b9c6d3; padding:3px 8px; border-radius:999px; border:1px solid #313d61; }
+
+    nav { display:flex; gap:10px; margin-top:12px; }
+    .tab { background: #141938; border:1px solid #21274a; color:#d7deea; padding:8px 12px; border-radius:10px; cursor:pointer; }
+    .tab[aria-selected="true"] { background: #1b2144; border-color:#2b355f; box-shadow: inset 0 0 0 1px #2c3b6b; }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 18px; display:grid; gap:24px; }
+
+    .panel { background: var(--panel); border:1px solid #22284a; border-radius:16px; padding:16px; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .col { display:grid; gap:10px; }
+    label { font-size:12px; color: var(--muted); }
+    input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border:1px solid #2a3358; background:#0f1430; color:#e8ecf1; }
+    textarea { min-height: 72px; resize: vertical; }
+    button { padding: 10px 12px; border-radius: 10px; border: 1px solid #2b375e; background:#1c2448; color:#e8ecf1; cursor: pointer; }
+    button.primary { background: linear-gradient(180deg, #2d6df7, #1a4ed8); border-color:#356af1; }
+    button.ghost { background:transparent; border-color:#2b375e; }
+    button.danger { background: linear-gradient(180deg, #e15b5b, #cc4040); border-color:#e15b5b; }
+
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+    .grid3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px; }
+    .grid4 { display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; }
+    @media (max-width: 900px){ .grid2, .grid3, .grid4 { grid-template-columns: 1fr; } }
+
+    .tiles { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:12px; }
+    .tile-card { background:#111633; border:1px solid #242f59; border-radius:14px; padding:12px; display:grid; gap:8px; position:relative; }
+    .tile-head { display:flex; align-items:center; gap:8px; justify-content:space-between; }
+    .tile-idx { font-weight:600; color:#a6b6c9; }
+    .tile-actions { display:flex; gap:6px; }
+
+    .board-wrap { display:grid; gap:10px; }
+    .board { display:grid; grid-auto-flow: column; grid-auto-columns: 80px; gap:6px; background:#0b1030; padding:10px; border-radius:14px; overflow:auto; border:1px solid #26305c; }
+    .board .space { width:80px; height:80px; border-radius:10px; border:1px solid #2a3563; background:#121842; display:grid; place-items:center; position:relative; }
+    .board .space .label { font-size:11px; color:#c5d2e3; text-align:center; padding:4px; }
+    .board .token { position:absolute; bottom:4px; right:4px; width:26px; height:26px; border-radius:999px; border:2px solid rgba(255,255,255,.8); background:#9aa7ff; background-size:cover; background-position:center; }
+    .board .token.stack2 { right:32px; }
+    .board .token.stack3 { right:60px; }
+
+    .players { display:flex; flex-wrap:wrap; gap:8px; }
+    .pill { background:#10163a; border:1px solid #253062; padding:6px 10px; border-radius:999px; display:flex; align-items:center; gap:8px; }
+    .dot { width:10px; height:10px; border-radius:999px; }
+    .avatar { width:20px; height:20px; border-radius:50%; background:#334; background-size:cover; background-position:center; border:1px solid rgba(255,255,255,.6); }
+
+    .toast { position: fixed; left:50%; transform:translateX(-50%); bottom: 18px; background:#0f1432; border:1px solid #2a3563; padding:10px 14px; border-radius:10px; display:none; }
+    .help { color:#b9c6d3; font-size:12px; }
+    .muted { color:#9fb1c7; }
+    .right { margin-left:auto; }
+
+    .list { display:grid; gap:10px; }
+    .card { background:#111633; border:1px solid #24305a; border-radius:14px; padding:12px; display:flex; align-items:center; gap:10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Life Game Maker <span class="badge">Multiplayer • Firebase</span></h1>
+      <nav>
+        <button class="tab" data-tab="maker" aria-selected="true">Maker</button>
+        <button class="tab" data-tab="library">Library</button>
+        <button class="tab" data-tab="play">Play</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- MAKER -->
+    <section id="maker" class="panel" role="tabpanel">
+      <div class="grid3">
+        <div class="col">
+          <label>Game Title</label>
+          <input id="mk_title" type="text" placeholder="e.g., Birthday Life: Aadarsh Edition" />
+        </div>
+        <div class="col">
+          <label>Tiles (track length)</label>
+          <input id="mk_tilesCount" type="number" min="10" max="200" value="40" />
+        </div>
+        <div class="col">
+          <label>Game ID (auto on save)</label>
+          <input id="mk_gameId" type="text" placeholder="(auto)" readonly />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button id="mk_new" class="ghost">New</button>
+        <button id="mk_add10">+10 Tiles</button>
+        <button id="mk_fill" title="Fill with sample tiles">Fill Samples</button>
+        <span class="right"></span>
+        <button id="mk_save" class="primary">Save Game</button>
+      </div>
+
+      <p class="help">Each tile can change money, jump you forward/back, or just show a message. You can paste a Tile Image URL (PNG/JPG/SVG) — Google Drive links are supported. You can reorder tiles by editing their index number and clicking Save.</p>
+
+      <div id="mk_tiles" class="tiles"></div>
+
+      <div class="panel" style="margin-top:14px">
+        <div class="board-wrap">
+          <div class="row"><strong>Live Preview</strong><span class="muted">(scroll sideways)</span></div>
+          <div id="mk_boardPreview" class="board"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIBRARY -->
+    <section id="library" class="panel" role="tabpanel" hidden>
+      <div class="row" style="margin-bottom:8px;">
+        <strong>My Saved Games</strong>
+        <span class="right muted" id="lb_user"></span>
+      </div>
+      <div id="lb_list" class="list"></div>
+    </section>
+
+    <!-- PLAY -->
+    <section id="play" class="panel" role="tabpanel" hidden>
+      <div class="grid2">
+        <div class="panel">
+          <div class="col">
+            <strong>Create Room</strong>
+            <label>From Game</label>
+            <select id="pl_gameSelect"></select>
+            <label>Room Name</label>
+            <input id="pl_roomName" type="text" placeholder="e.g., Aadarsh‑bday‑room" />
+            <button id="pl_create" class="primary">Create Room</button>
+          </div>
+          <hr style="border:none;border-top:1px solid #29335e;margin:14px 0;"/>
+          <div class="col">
+            <strong>Join Room</strong>
+            <label>Room ID</label>
+            <input id="pl_roomId" type="text" placeholder="Enter a roomId" />
+            <label>Your Display Name</label>
+            <input id="pl_name" type="text" placeholder="e.g., Gaibul" />
+            <label>Avatar (PNG) — or paste an image URL below</label>
+            <input id="pl_avatar" type="file" accept="image/png,image/jpeg,image/webp" />
+            <label>Avatar URL (optional)</label>
+            <input id="pl_avatarUrl" type="text" placeholder="https://... or Google Drive link" />
+            <label>Token Color</label>
+            <input id="pl_color" type="color" value="#6fa8ff" />
+            <div class="row">
+              <button id="pl_join" class="primary">Join Room</button>
+              <button id="pl_leave" class="ghost">Leave Room</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="row" style="justify-content:space-between;align-items:center;">
+            <div>
+              <strong>Room:</strong> <span id="room_info">—</span>
+              <div class="muted" id="game_info">—</div>
+            </div>
+            <div class="row">
+              <button id="host_start" class="primary">Start</button>
+              <button id="host_reset" class="ghost">Reset</button>
+            </div>
+          </div>
+
+          <div class="players" id="pl_players" style="margin:10px 0 6px"></div>
+
+          <div class="board-wrap">
+            <div class="row" style="align-items:center; gap:12px;">
+              <button id="pl_roll" class="primary">🎲 Roll</button>
+              <div>Dice: <strong id="pl_dice">—</strong></div>
+              <div>Turn: <span id="pl_turn">—</span></div>
+            </div>
+            <div id="pl_board" class="board" style="height:260px"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    // ===== Firebase imports (v10) =====
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getDatabase, ref as dbRef, set, update, push, onValue, get, child, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+    // ===== Your Firebase config (from your message) =====
+    const firebaseConfig = {
+      apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
+      authDomain: "nomercy-8269a.firebaseapp.com",
+      databaseURL: "https://nomercy-8269a-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "nomercy-8269a",
+      storageBucket: "nomercy-8269a.firebasestorage.app",
+      messagingSenderId: "349047620790",
+      appId: "1:349047620790:web:3206ff81cb7f5413d29217",
+      measurementId: "G-1WX7CWBFGF"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    try { getAnalytics(app); } catch(e) { /* analytics optional */ }
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+    const storage = getStorage(app);
+
+    // ===== Utility =====
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+    const toast = (msg, ms=1800) => { const n=$('#toast'); n.textContent=msg; n.style.display='block'; setTimeout(()=>n.style.display='none', ms); };
+    const randId = (len=6)=> Math.random().toString(36).slice(2,2+len);
+    const directDriveUrl = (url) => {
+      if(!url) return '';
+      try{
+        const u = new URL(url);
+        if(u.hostname.includes('drive.google.com')){
+          // patterns: https://drive.google.com/file/d/FILE_ID/view?usp=sharing OR open?id=FILE_ID
+          const parts = u.pathname.split('/');
+          let id = '';
+          const i = parts.indexOf('d');
+          if(i>=0 && parts[i+1]) id = parts[i+1];
+          if(!id) id = u.searchParams.get('id') || '';
+          if(id) return `https://drive.google.com/uc?export=download&id=${id}`;
+        }
+      }catch(e){ /* ignore */ }
+      return url;
+    };
+
+    // ===== Auth (anonymous) =====
+    let me = null; let myUid = null;
+    signInAnonymously(auth).catch(console.warn);
+    onAuthStateChanged(auth, (user)=>{
+      if(user){ me = user; myUid = user.uid; $('#lb_user').textContent = `Signed in as ${myUid.slice(0,6)}… (anon)`; loadMyGames(); refreshGameSelect(); }
+    });
+
+    // ===== Tabs =====
+    $$('.tab').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const tab = btn.dataset.tab;
+        $$('.tab').forEach(b=>b.setAttribute('aria-selected', b===btn));
+        $$('#maker,#library,#play').forEach(s=>s.hidden = s.id!==tab);
+      });
+    });
+
+    // ===== MAKER state =====
+    let mk_state = { gameId:'', title:'', tilesCount:40, tiles:[] };
+
+    const renderMaker = () => {
+      $('#mk_title').value = mk_state.title || '';
+      $('#mk_tilesCount').value = mk_state.tilesCount;
+      $('#mk_gameId').value = mk_state.gameId || '';
+
+      // ensure tiles length
+      while(mk_state.tiles.length < mk_state.tilesCount){
+        mk_state.tiles.push({ idx: mk_state.tiles.length, label:`Tile ${mk_state.tiles.length+1}`, desc:'', money:0, action:'none', actionValue:0, color:'#121842', imageUrl:'' });
+      }
+      if(mk_state.tiles.length > mk_state.tilesCount){ mk_state.tiles.length = mk_state.tilesCount; }
+
+      // tile editor list
+      const root = $('#mk_tiles');
+      root.innerHTML = '';
+      mk_state.tiles.forEach((t, i)=>{
+        const card = document.createElement('div');
+        card.className = 'tile-card';
+        card.innerHTML = `
+          <div class="tile-head">
+            <div class="tile-idx">#<input data-k="idx" type="number" min="0" style="width:64px" value="${i}"/></div>
+            <div class="tile-actions">
+              <button data-act="dup">Duplicate</button>
+              <button data-act="del" class="danger">Delete</button>
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="col">
+              <label>Label</label>
+              <input data-k="label" type="text" value="${t.label||''}" />
+            </div>
+            <div class="col">
+              <label>Color</label>
+              <input data-k="color" type="color" value="${t.color||'#121842'}" />
+            </div>
+          </div>
+          <div class="col">
+            <label>Description</label>
+            <textarea data-k="desc">${t.desc||''}</textarea>
+          </div>
+          <div class="grid3">
+            <div class="col">
+              <label>Money Δ (can be negative)</label>
+              <input data-k="money" type="number" value="${t.money||0}" />
+            </div>
+            <div class="col">
+              <label>Action</label>
+              <select data-k="action">
+                <option value="none" ${t.action==='none'?'selected':''}>None</option>
+                <option value="jump" ${t.action==='jump'?'selected':''}>Jump (± steps)</option>
+                <option value="goto" ${t.action==='goto'?'selected':''}>Go to tile #</option>
+              </select>
+            </div>
+            <div class="col">
+              <label>Action Value</label>
+              <input data-k="actionValue" type="number" value="${t.actionValue||0}" />
+            </div>
+          </div>
+          <div class="col">
+            <label>Tile Image URL (optional)</label>
+            <input data-k="imageUrl" type="text" placeholder="https://... or Google Drive link" value="${t.imageUrl||''}" />
+          </div>
+        `;
+        // value handlers
+        card.querySelectorAll('[data-k]').forEach(el=>{
+          el.addEventListener('change', (e)=>{
+            const k = el.dataset.k; let v = el.value;
+            if(k==='money' || k==='actionValue' || k==='idx') v = Number(v);
+            if(k==='imageUrl') v = directDriveUrl(v);
+            mk_state.tiles[i][k] = v;
+            if(k==='idx'){
+              const to = Math.max(0, Math.min(mk_state.tiles.length-1, v|0));
+              if(to!==i){
+                const [itm] = mk_state.tiles.splice(i,1);
+                mk_state.tiles.splice(to,0,itm);
+                renderMaker();
+              }
+            }
+            renderPreview();
+          });
+        });
+        // actions
+        card.querySelector('[data-act="dup"]').addEventListener('click', ()=>{
+          const copy = JSON.parse(JSON.stringify(mk_state.tiles[i]));
+          mk_state.tiles.splice(i+1,0,copy);
+          mk_state.tilesCount = mk_state.tiles.length;
+          renderMaker();
+          renderPreview();
+        });
+        card.querySelector('[data-act="del"]').addEventListener('click', ()=>{
+          mk_state.tiles.splice(i,1);
+          mk_state.tilesCount = mk_state.tiles.length;
+          renderMaker();
+          renderPreview();
+        });
+        root.appendChild(card);
+      });
+
+      renderPreview();
+    };
+
+    const renderPreview = () => {
+      const b = $('#mk_boardPreview');
+      b.innerHTML = '';
+      mk_state.tiles.forEach((t, i)=>{
+        const s = document.createElement('div'); s.className='space'; s.style.background = t.color||'#121842';
+        if(t.imageUrl){ s.style.backgroundImage = `url(${t.imageUrl})`; s.style.backgroundSize='cover'; s.style.backgroundPosition='center'; s.style.opacity=0.9; }
+        const lab = document.createElement('div'); lab.className='label'; lab.textContent = t.label||`Tile ${i+1}`; s.appendChild(lab);
+        b.appendChild(s);
+      });
+    };
+
+    // Maker button handlers
+    $('#mk_new').addEventListener('click', ()=>{ mk_state = { gameId:'', title:'', tilesCount:40, tiles:[] }; renderMaker(); toast('New game started'); });
+    $('#mk_add10').addEventListener('click', ()=>{ mk_state.tilesCount = Math.min(200, mk_state.tilesCount + 10); renderMaker(); });
+    $('#mk_fill').addEventListener('click', ()=>{
+      const fillers = [
+        { label:'Start', desc:'Begin your journey!', money:50, action:'none', actionValue:0, color:'#243a6b' },
+        { label:'Pay Rent', desc:'Bills are due.', money:-20, action:'none', color:'#3b2a5f' },
+        { label:'Go Forward', desc:'Move 2 extra steps.', money:0, action:'jump', actionValue:2, color:'#2b4b4e' },
+        { label:'Go Back', desc:'Oops! Back 1.', money:0, action:'jump', actionValue:-1, color:'#4a2b2b' },
+        { label:'Bonus', desc:'Nice job! +30.', money:30, action:'none', color:'#305035' },
+      ];
+      for(let i=0;i<mk_state.tilesCount;i++){
+        const f = fillers[i%fillers.length];
+        mk_state.tiles[i] = { idx:i, label:f.label+` ${i+1}`, desc:f.desc, money:f.money, action:f.action, actionValue:f.actionValue||0, color:f.color, imageUrl:'' };
+      }
+      renderMaker(); toast('Filled with sample tiles');
+    });
+
+    $('#mk_title').addEventListener('input', e=>{ mk_state.title = e.target.value; });
+    $('#mk_tilesCount').addEventListener('change', e=>{ mk_state.tilesCount = Math.max(10, Math.min(200, Number(e.target.value))); renderMaker(); });
+
+    $('#mk_save').addEventListener('click', async ()=>{
+      if(!myUid){ toast('Sign-in not ready'); return; }
+      // basic normalize
+      mk_state.title = $('#mk_title').value.trim() || 'Untitled Life Game';
+      mk_state.tilesCount = Number($('#mk_tilesCount').value)||40;
+      mk_state.tiles.forEach((t,i)=> t.idx = i);
+
+      let gameId = mk_state.gameId || randId(8);
+      const now = Date.now();
+      const gameData = { ownerUid: myUid, title: mk_state.title, tilesCount: mk_state.tilesCount, tiles: mk_state.tiles, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+      await set(dbRef(db, `games/${gameId}`), gameData);
+      await update(dbRef(db, `users/${myUid}/myGames/${gameId}`), { title: mk_state.title, updatedAt: now });
+      mk_state.gameId = gameId; $('#mk_gameId').value = gameId;
+      await refreshGameSelect(); await loadMyGames();
+      toast(`Saved game ${gameId}`);
+    });
+
+    // initial render
+    renderMaker();
+
+    // ===== LIBRARY =====
+    async function loadMyGames(){
+      if(!myUid) return;
+      const list = $('#lb_list'); list.innerHTML = '';
+      const snap = await get(dbRef(db, `users/${myUid}/myGames`));
+      const entries = snap.exists()? Object.entries(snap.val()) : [];
+      if(entries.length===0){ list.innerHTML = '<div class="muted">No games saved yet. Create one in the Maker tab.</div>'; return; }
+      for (const [gid, meta] of entries){
+        const card = document.createElement('div'); card.className='card';
+        card.innerHTML = `<div style="flex:1;">
+          <div><strong>${meta.title||gid}</strong></div>
+          <div class="muted">ID: ${gid}</div>
+        </div>
+        <button data-act="edit">Edit</button>
+        <button data-act="room" class="primary">Make Room</button>
+        <button data-act="copy" class="ghost">Copy ID</button>`;
+        card.querySelector('[data-act="edit"]').addEventListener('click', async()=>{
+          const gs = await get(dbRef(db, `games/${gid}`)); if(gs.exists()){ mk_state = { gameId: gid, title: gs.val().title, tilesCount: gs.val().tilesCount||gs.val().tiles?.length||40, tiles: gs.val().tiles||[] }; renderMaker(); $$('.tab[data-tab="maker"]')[0].click(); toast('Loaded into Maker'); }
+        });
+        card.querySelector('[data-act="room"]').addEventListener('click', ()=>{
+          $('#pl_gameSelect').value = gid; $$('.tab[data-tab="play"]')[0].click(); toast('Use Create Room to start');
+        });
+        card.querySelector('[data-act="copy"]').addEventListener('click', ()=>{ navigator.clipboard.writeText(gid); toast('Game ID copied'); });
+        list.appendChild(card);
+      }
+    }
+
+    async function refreshGameSelect(){
+      const sel = $('#pl_gameSelect'); sel.innerHTML='';
+      const snap = await get(dbRef(db, `users/${myUid}/myGames`));
+      const entries = snap.exists()? Object.entries(snap.val()) : [];
+      if(entries.length===0){ const opt = document.createElement('option'); opt.value=''; opt.textContent='— no saved games —'; sel.appendChild(opt); return; }
+      for (const [gid, meta] of entries){ const opt = document.createElement('option'); opt.value=gid; opt.textContent = `${meta.title||gid} (${gid})`; sel.appendChild(opt); }
+    }
+
+    // ===== PLAY / ROOMS =====
+    let currentRoomId = null; let currentRoom = null; let currentGame = null; let isHost=false; let myPlayerRef=null; let unsubRoom=null;
+
+    async function loadGameById(gameId){ const s = await get(dbRef(db, `games/${gameId}`)); return s.exists()? s.val() : null; }
+
+    function renderRoomUI(){
+      $('#room_info').textContent = currentRoomId? `${currentRoom?.name||''} • ${currentRoomId}`:'—';
+      $('#game_info').textContent = currentGame? `${currentGame.title} • ${currentGame.tilesCount} tiles`:'—';
+
+      // players pills
+      const pRoot = $('#pl_players'); pRoot.innerHTML='';
+      const players = currentRoom?.players ? Object.entries(currentRoom.players) : [];
+      players.forEach(([uid, p])=>{
+        const pill = document.createElement('div'); pill.className='pill';
+        const av = document.createElement('div'); av.className='avatar'; if(p.avatarUrl){ av.style.backgroundImage = `url(${p.avatarUrl})`; }
+        const dot = document.createElement('div'); dot.className='dot'; dot.style.background = p.color||'#6fa8ff';
+        const name = document.createElement('div'); name.textContent = `${p.name||uid.slice(0,4)} • $${p.money|0} • @${p.position|0}`;
+        pill.appendChild(av); pill.appendChild(dot); pill.appendChild(name); pRoot.appendChild(pill);
+      });
+
+      // board render
+      const b = $('#pl_board'); b.innerHTML='';
+      if(!currentGame){ return; }
+      currentGame.tiles.forEach((t, idx)=>{
+        const s = document.createElement('div'); s.className='space'; s.style.background = t.color||'#121842';
+        if(t.imageUrl){ s.style.backgroundImage = `url(${t.imageUrl})`; s.style.backgroundSize='cover'; s.style.backgroundPosition='center'; s.style.opacity=0.92; }
+        const lab = document.createElement('div'); lab.className='label'; lab.textContent = t.label||`Tile ${idx+1}`; s.appendChild(lab);
+
+        // tokens (stack)
+        const here = players.filter(([_,p])=> (p.position|0)===idx);
+        here.forEach(([,p],i)=>{
+          const tok = document.createElement('div'); tok.className='token'; if(i===1) tok.classList.add('stack2'); if(i>=2) tok.classList.add('stack3');
+          tok.style.background = p.avatarUrl? undefined : (p.color||'#9aa7ff');
+          if(p.avatarUrl){ tok.style.backgroundImage = `url(${p.avatarUrl})`; tok.style.backgroundSize='cover'; tok.style.backgroundPosition='center'; }
+          s.appendChild(tok);
+        });
+        b.appendChild(s);
+      });
+
+      // controls visibility
+      $('#host_start').style.display = isHost ? 'inline-block' : 'none';
+      $('#host_reset').style.display = isHost ? 'inline-block' : 'none';
+      const turnUid = currentRoom?.turn?.uid; $('#pl_turn').textContent = turnUid? (currentRoom.players?.[turnUid]?.name || turnUid.slice(0,6)) : '—';
+      $('#pl_dice').textContent = currentRoom?.dice?.last || '—';
+
+      // enable roll only if it's my turn and started
+      const myTurn = turnUid && turnUid===myUid && currentRoom?.started;
+      $('#pl_roll').disabled = !myTurn;
+    }
+
+    async function createRoom(){
+      const selGame = $('#pl_gameSelect').value; if(!selGame){ toast('Pick a game from the dropdown'); return; }
+      const name = ($('#pl_roomName').value.trim()||`room-${randId()}`).slice(0,40);
+      const rid = randId(8);
+      const game = await loadGameById(selGame);
+      if(!game){ toast('Game not found'); return; }
+      const room = { gameId: selGame, name, hostUid: myUid, createdAt: serverTimestamp(), started:false, dice:{ last:0 }, players:{} };
+      await set(dbRef(db, `rooms/${rid}`), room);
+      toast(`Room created: ${rid}`);
+      $('#pl_roomId').value = rid;
+      await joinRoom(rid); // host auto-joins
+      isHost = true;
+    }
+
+    async function uploadAvatarIfNeeded(){
+      const file = $('#pl_avatar').files?.[0];
+      let url = ($('#pl_avatarUrl').value||'').trim();
+      if(url){ return directDriveUrl(url); }
+      if(file){
+        const sref = storageRef(storage, `avatars/${myUid}/${Date.now()}_${file.name}`);
+        await uploadBytes(sref, file);
+        url = await getDownloadURL(sref);
+        return url;
+      }
+      return '';
+    }
+
+    async function joinRoom(roomId){
+      const name = ($('#pl_name').value.trim()||`Player-${randId(3)}`).slice(0,18);
+      const color = $('#pl_color').value||'#6fa8ff';
+      const avatarUrl = await uploadAvatarIfNeeded();
+
+      const pRef = dbRef(db, `rooms/${roomId}/players/${myUid}`);
+      await update(pRef, { name, color, avatarUrl: avatarUrl||null, money: 100, position: 0, joinedAt: serverTimestamp() });
+      currentRoomId = roomId; myPlayerRef = pRef;
+
+      // subscribe to room
+      if(unsubRoom) unsubRoom();
+      const roomRef = dbRef(db, `rooms/${roomId}`);
+      const off = onValue(roomRef, async (snap)=>{
+        if(!snap.exists()){ toast('Room closed'); return; }
+        currentRoom = snap.val();
+        if(!currentGame){ currentGame = await loadGameById(currentRoom.gameId); }
+        renderRoomUI();
+      });
+      unsubRoom = ()=> off();
+      toast(`Joined room ${roomId}`);
+    }
+
+    async function leaveRoom(){
+      if(!currentRoomId) return;
+      await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { leftAt: serverTimestamp() });
+      currentRoomId = null; currentRoom=null; currentGame=null; isHost=false; myPlayerRef=null; renderRoomUI();
+      toast('Left room');
+    }
+
+    async function hostStart(){
+      if(!isHost || !currentRoomId) return;
+      const players = Object.keys(currentRoom.players||{});
+      if(players.length<1){ toast('Need at least 1 player'); return; }
+      const turn = { uid: players[0], idx:0 };
+      await update(dbRef(db, `rooms/${currentRoomId}`), { started:true, turn });
+    }
+
+    async function hostReset(){
+      if(!isHost || !currentRoomId) return;
+      const players = Object.keys(currentRoom.players||{});
+      const updates = {};
+      players.forEach(uid=>{ updates[`rooms/${currentRoomId}/players/${uid}/position`] = 0; updates[`rooms/${currentRoomId}/players/${uid}/money`] = 100; });
+      updates[`rooms/${currentRoomId}/dice/last`] = 0; updates[`rooms/${currentRoomId}/started`] = false;
+      await update(dbRef(db), updates); toast('Room reset');
+    }
+
+    function nextTurn(){
+      const order = Object.keys(currentRoom.players||{});
+      if(order.length===0) return { uid:null, idx:0 };
+      const curIdx = currentRoom.turn?.idx||0; const nextIdx = (curIdx+1)%order.length; return { uid: order[nextIdx], idx: nextIdx };
+    }
+
+    async function applyTileEffects(uid, idx){
+      const t = currentGame.tiles[idx];
+      let moneyΔ = Number(t.money||0);
+      let newPos = idx;
+      if(t.action==='jump') newPos = Math.max(0, Math.min(currentGame.tiles.length-1, newPos + (Number(t.actionValue)||0)));
+      if(t.action==='goto') newPos = Math.max(0, Math.min(currentGame.tiles.length-1, Number(t.actionValue)||0));
+
+      const p = currentRoom.players?.[uid]||{ money:0 };
+      const newMoney = (p.money|0) + moneyΔ;
+      await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { position: newPos, money: newMoney });
+      if(moneyΔ!==0){ toast(`${p.name||uid} ${moneyΔ>0?'+':''}${moneyΔ}`); }
+    }
+
+    async function rollDice(){
+      if(!currentRoomId || !currentRoom?.started) return;
+      const turnUid = currentRoom?.turn?.uid; if(turnUid!==myUid){ toast('Not your turn'); return; }
+      const roll = 1 + Math.floor(Math.random()*6);
+      await update(dbRef(db, `rooms/${currentRoomId}/dice`), { last: roll, by: myUid, ts: serverTimestamp() });
+
+      // move me
+      const pos = currentRoom.players?.[myUid]?.position || 0;
+      const dest = (pos + roll) % (currentGame.tiles.length);
+      await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { position: dest });
+      await applyTileEffects(myUid, dest);
+
+      // advance turn
+      const nt = nextTurn();
+      await update(dbRef(db, `rooms/${currentRoomId}/`), { turn: nt });
+    }
+
+    // Button wires (Play)
+    $('#pl_create').addEventListener('click', createRoom);
+    $('#pl_join').addEventListener('click', async()=>{
+      const rid = $('#pl_roomId').value.trim(); if(!rid){ toast('Enter a room ID'); return; }
+      await joinRoom(rid);
+      isHost = currentRoom?.hostUid===myUid; // may update after initial fetch
+    });
+    $('#pl_leave').addEventListener('click', leaveRoom);
+    $('#host_start').addEventListener('click', hostStart);
+    $('#host_reset').addEventListener('click', hostReset);
+    $('#pl_roll').addEventListener('click', rollDice);
+
+    // Keyboard: press R to roll
+    window.addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='r'){ if(!$('#pl_roll').disabled) rollDice(); } });
+
+  </script>
+</body>
+</html>
