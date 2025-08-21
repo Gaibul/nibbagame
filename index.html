@@ -45,7 +45,7 @@
     .tile-actions { display:flex; gap:6px; }
 
     .board-wrap { display:grid; gap:10px; }
-    .board { display:grid; grid-auto-flow: column; grid-auto-columns: 80px; gap:6px; background:#0b1030; padding:10px; border-radius:14px; overflow:auto; border:1px solid #26305c; }
+    .board { --gap:6px; display:grid; grid-auto-flow: column; grid-auto-columns: 80px; gap:var(--gap); background:#0b1030; padding:10px; border-radius:14px; overflow:auto; border:1px solid #26305c; }
     .board .space { width:80px; height:80px; border-radius:10px; border:1px solid #2a3563; background:#121842; display:grid; place-items:center; position:relative; }
     .board .space .label { font-size:11px; color:#c5d2e3; text-align:center; padding:4px; }
     .board .token { position:absolute; bottom:4px; right:4px; width:26px; height:26px; border-radius:999px; border:2px solid rgba(255,255,255,.8); background:#9aa7ff; background-size:cover; background-position:center; }
@@ -73,6 +73,13 @@
     .bigdice{font-size:22px;padding:14px 18px;border-radius:14px}
     .feed{background:#0f1432;border:1px solid #2a3563;border-radius:12px;padding:10px;overflow:auto}
     .deckbar button{width:100%}
+
+    /* Auto-fit: show all tiles across without scroll */
+    .board.fit{ 
+      grid-auto-columns: calc((100% - (var(--cols,1) - 1) * var(--gap)) / var(--cols,1));
+      overflow:hidden; 
+    }
+    .board.fit .space{ width:auto; height:auto; aspect-ratio:1/1; } /* keep tiles square */
   </style>
 </head>
 <body>
@@ -292,12 +299,14 @@
       return url;
     };
 
-    // ===== Auth (anonymous)
+    // ===== Auth (anonymous) — with readiness guard
     let myUid = null;
+    let _resolveAuth; const authReady = new Promise(res => (_resolveAuth = res));
     signInAnonymously(auth).catch(console.warn);
     onAuthStateChanged(auth, (user)=>{
       if(user){
         myUid = user.uid;
+        _resolveAuth?.();
         $('#lb_user') && ($('#lb_user').textContent = `Signed in as ${myUid.slice(0,6)}… (anon)`);
         loadMyGames();
         refreshGameSelect();
@@ -496,7 +505,8 @@
 
     // Save game to Firebase
     $('#mk_save').addEventListener('click', async ()=>{
-      if(!myUid){ toast('Sign-in not ready'); return; }
+      await authReady;
+      if(!myUid){ toast('Sign-in failed'); return; }
       mk_state.title = $('#mk_title').value.trim() || 'Untitled Life Game';
       mk_state.tilesCount = Number($('#mk_tilesCount').value)||40;
       mk_state.tiles.forEach((t,i)=> t.idx = i);
@@ -572,8 +582,11 @@
         pill.appendChild(av); pill.appendChild(dot); pill.appendChild(name); root.appendChild(pill);
       });
     }
-    function renderBoardTo(containerId){
-      const b = document.getElementById(containerId); if(!b || !currentGame) return; b.innerHTML='';
+    function renderBoardTo(containerId, fit=false){
+      const b = document.getElementById(containerId); if(!b || !currentGame) return; 
+      b.classList.toggle('fit', fit);
+      b.style.setProperty('--cols', currentGame.tiles.length);
+      b.innerHTML='';
       const players = currentRoom?.players ? Object.entries(currentRoom.players) : [];
       currentGame.tiles.forEach((t, idx)=>{
         const s = document.createElement('div'); s.className='space'; s.style.background = t.color||'#121842';
@@ -595,8 +608,7 @@
       $('#game_info').textContent = currentGame? `${currentGame.title} • ${currentGame.tilesCount} tiles`:'—';
 
       renderPlayersTo('pl_players');
-
-      renderBoardTo('pl_board');
+      renderBoardTo('pl_board', false);
 
       // controls & turn
       $('#host_start').style.display = isHost ? 'inline-block' : 'none';
@@ -606,13 +618,13 @@
       const myTurn = turnUid && turnUid===myUid && currentRoom?.started;
       $('#pl_roll').disabled = !myTurn;
 
-      // mirror to full view if present
+      // mirror to full view
       $('#rf_room').textContent = currentRoomId? `${currentRoom?.name||''} • ${currentRoomId}`:'—';
       $('#rf_game').textContent = currentGame? `${currentGame.title} • ${currentGame.tilesCount} tiles`:'—';
       $('#rf_turn').textContent = turnUid? (currentRoom.players?.[turnUid]?.name || turnUid.slice(0,6)) : '—';
       $('#rf_dice').textContent = currentRoom?.dice?.last || '—';
       renderPlayersTo('rf_players');
-      renderBoardTo('rf_board');
+      renderBoardTo('rf_board', true);  // << auto-fit here
 
       const canControl = !!(currentRoom?.started && (isHost || (turnUid===myUid)));
       ['rf_roll','rf_draw_action','rf_draw_life','rf_choose_career'].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled = !canControl; });
