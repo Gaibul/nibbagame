@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HustleLife — Aadarsh in Paris</title>
+  <title>HustleLife — Black can crack</title>
   <style>
     :root { --bg:#0b0d10; --panel:#12151a; --ink:#e6e9ef; --muted:#9aa4b2; --brand:#6ee7ff; --accent:#a78bfa; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; }
     *{box-sizing:border-box}
@@ -71,11 +71,21 @@
     .popupCard{max-width:560px;width:90%;background:#0f141b;border:1px solid #28303c;border-radius:14px;padding:16px;box-shadow:0 20px 40px rgba(0,0,0,.35)}
     .popupCard h3{margin:0 0 6px 0}
     .popupCard p{margin:0 0 10px 0;color:#b6c2d1}
+
+    /* Tile Image Grid in Lobby */
+    .tileGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;max-height:360px;overflow:auto;margin-top:8px}
+    .tileItem{border:1px solid #232833;border-radius:12px;background:#0e1116;padding:10px;display:flex;flex-direction:column;gap:8px}
+    .tilePreview{height:90px;border-radius:10px;background:#0a0d12 center/cover no-repeat;border:1px solid #1f2430;position:relative}
+    .tileBadge{position:absolute;top:6px;left:6px;background:#0b1622;border:1px solid #203044;color:#cfe7ff;font-size:11px;padding:2px 6px;border-radius:999px}
+    .tileTitle{font-size:12px;color:#cbd5e1}
+    .tileInputWrap{display:flex;gap:6px}
+    .tileInputWrap input{flex:1}
+    .smBtns .btn{padding:6px 8px;font-size:12px}
   </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>HustleLife — Black can crack)</h1>
+  <h1>HustleLife — Aadarsh in Paris</h1>
   <p class="muted">Create/join rooms, play in real time, add images to tiles, and use any image URL as your player token.</p>
 
   <!-- Auth / Join -->
@@ -125,14 +135,9 @@
     </div>
 
     <div class="pane" style="margin-top:12px">
-      <div class="sectionTitle">Host Tools · Tile Images (optional)</div>
-      <div class="inlineForm">
-        <input id="tileNum" type="number" min="1" max="40" placeholder="Tile # (1-40)" style="width:120px" />
-        <input id="tileImgUrl" placeholder="Tile image URL" />
-        <button class="btn" id="setTileImgBtn">Set Image</button>
-        <button class="btn" id="clearTileImgBtn">Clear</button>
-      </div>
-      <div class="small muted">Paste any public image URL (supports Google Drive public links).</div>
+      <div class="sectionTitle">Host Tools · Tile Images (1–40)</div>
+      <div class="small muted">Paste public image URLs (supports Google Drive public links). Non-hosts see a read-only preview.</div>
+      <div id="tileImagesGrid" class="tileGrid"></div>
     </div>
   </div>
 
@@ -146,7 +151,6 @@
       <div class="row">
         <div class="diceWrap">
           <div id="dice" class="dice" title="Dice">
-            <!-- 3x3 pips -->
             <div class="pip" data-pos="1"></div>
             <div class="pip" data-pos="2"></div>
             <div class="pip" data-pos="3"></div>
@@ -238,7 +242,7 @@
   </div>
 </div>
 
-<!-- Firebase compat (works from file:// for quick tests) -->
+<!-- Firebase compat -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -311,10 +315,9 @@
       return { action, life, career };
     }
 
-    // ===== Tiles — VERBATIM TITLES & DESCRIPTIONS =====
+    // ===== Tiles (verbatim content) =====
     function defaultTiles(){
       const t=[]; const push=(n,title,description,action,args={})=>t.push({n,title,description,action,args,imgUrl:''});
-
       // Childhood (1–10)
       push(1,'Start: Born in the Hood','You enter the world in a underfunded hospital. Nurses say, "Another fighter." Grab your diaper bag and hustle.','PAYDAY',{amount:50});
       push(2,'First Steps','Toddling around the projects, dodging broken glass. Mom says, "Stay inside, baby."','NONE');
@@ -326,7 +329,6 @@
       push(8,'Corner Store Run','Sent to get milk—store owner follows you around like you\'re a thief.','NONE',{hpIfLt:{lt:50,delta:-10}});
       push(9,'Block Friends','Made your first crew—playing hoops till dark. Bonds for life... or trouble.','FAMILY',{type:'mentor'});
       push(10,'End of Innocence','Saw your first drive-by. Hood life\'s getting real.','GOTO',{tile:11});
-
       // Teen Years (11–20)
       push(11,'High School Start','Freshman year in overcrowded school. Books outdated, dreams big.','CHOOSE_CAREER',{preview:true});
       push(12,'Police Brutality Intro','Stopped for "fitting the description." Roughed up, no charges—trauma lingers.','JUMP',{steps:-3, tokensAdd:2});
@@ -338,7 +340,6 @@
       push(18,'Watermelon Stereotype Mock','Friends roast you for loving watermelon. "Black card revoked?" Nah, own it.','JUMP',{steps:1});
       push(19,'Activism Spark','Join school protest against racism. Eyes opened.','DRAW',{deck:'action',count:1});
       push(20,'Teen Graduation','Cap and gown, but half your class dropped out. Bitter-sweet.','PAYDAY',{amount:200});
-
       // Adulthood Grind (21–30)
       push(21,'First Real Job','Entry-level gig—boss micro-manages \'cause you\'re Black.','CHOOSE_CAREER',{lock:true});
       push(22,'Police Brutality Strike','Traffic stop gone wrong—you got beaten, viral video optional.','GOTO',{tile:15, tokensAdd:3});
@@ -350,21 +351,18 @@
       push(28,'Watermelon Festival','Community event: You ate lots of watermelon, reclaiming the stereotype.','JUMP',{steps:3});
       push(29,'Systemic Setback','Evicted due to gentrification. Hood changing.','JUMP',{steps:-5});
       push(30,'Grind Milestone','Bought your first ride—freedom on wheels.','DRAW',{deck:'action',count:1});
-
       // Family Legacy (31–35)
       push(31,'Marriage Milestone','Tied the knot—hoping to break cycles.','FAMILY',{type:'partner', spouseBonusPerPayday:20});
       push(32,'Kid Arrives','Bundle of joy, but bills stack up.','FAMILY',{type:'child', hpDelta:-100});
       push(33,'Family Racism Hit','In-laws drop racist vibes at dinner.','DRAW',{deck:'life',count:1});
       push(34,'Police Family Scare','Cops harass your teen kid—brutality cycle.','STOP',{turns:1, tokensAdd:1});
       push(35,'Legacy Reflection','Teaching kids about dad leaving, violence, stereotypes—breaking chains.','NONE',{redeemAllTokensMultiplier:true});
-
       // Boss Status (36–40)
       push(36,'Big Break','Viral success or business boom. Made it?','PAYDAY',{multiplier:2});
       push(37,'Final Racism Hurdle','Even at the top, "imposter syndrome" from years of bias.','DRAW',{deck:'action',count:1});
       push(38,'Police Flashback','Old brutality case payout—justice?','NONE',{payIfTokensGT:{gt:3, amount:300}});
       push(39,'Stereotype Roast','Memoir drops: "I Ate Fried Chicken and Watermelon—And Survived the Hood."','NONE');
       push(40,'Finish: Boss Status','Mansion, community center, or exile—your hood story ends. Tally up.','FINISH');
-
       return t;
     }
 
@@ -433,7 +431,67 @@
       const players = Object.values(roomSnap.players||{});
       const allReady = players.length>=2 && players.every(p=>p.ready);
       byId('startGameBtn').disabled = !((roomSnap.hostUid===uid) && allReady);
+
+      // Render tile image grid
+      renderTileImageGrid();
     }
+
+    function renderTileImageGrid(){
+      const grid = byId('tileImagesGrid');
+      if(!grid) return;
+      const tiles = roomSnap.tiles || {};
+      const isHost = roomSnap.hostUid===uid;
+
+      const order = Object.keys(tiles).map(n=>parseInt(n,10)).sort((a,b)=>a-b);
+      grid.innerHTML = order.map(n=>{
+        const t = tiles[n];
+        const url = (t && t.imgUrl) ? t.imgUrl : '';
+        const safeUrl = url.replace(/"/g,'&quot;');
+        return `
+          <div class="tileItem" data-n="${n}">
+            <div class="tilePreview" style="background-image:${url?`url('${safeUrl}')`:'none'};">
+              <span class="tileBadge">#${n}</span>
+            </div>
+            <div class="tileTitle">${t.title || ''}</div>
+            ${isHost ? `
+            <div class="tileInputWrap">
+              <input placeholder="Image URL" value="${safeUrl}">
+            </div>
+            <div class="row smBtns">
+              <button class="btn brand" data-act="apply">Apply</button>
+              <button class="btn" data-act="clear">Clear</button>
+            </div>` : ``}
+          </div>
+        `;
+      }).join('');
+      // For non-hosts, they still see the previews/titles, but no inputs/buttons
+    }
+
+    // Grid event delegation (host only)
+    byId('tileImagesGrid').addEventListener('click', async (e)=>{
+      const btn = e.target.closest('button[data-act]');
+      if(!btn) return;
+      if(roomSnap.hostUid!==uid) return; // only host can edit
+      const item = e.target.closest('.tileItem'); if(!item) return;
+      const n = item.dataset.n; if(!n) return;
+      const act = btn.dataset.act;
+      const input = item.querySelector('input');
+
+      try {
+        if(act==='apply'){
+          const url = (input?.value || '').trim();
+          await firebase.database().ref(`rooms/${curRoom}/tiles/${n}`).update({ imgUrl: url });
+        } else if(act==='clear'){
+          await firebase.database().ref(`rooms/${curRoom}/tiles/${n}`).update({ imgUrl: '' });
+          if(input) input.value = '';
+        }
+      } catch (err){
+        console.error('Tile image update error:', err);
+        alert('Failed to update tile image. Check the URL and Firebase rules.');
+      }
+    });
+
+    // ===== HUD/Game render =====
     function renderGame(){
       byId('gameCode').textContent = curRoom;
       const turnIdx = roomSnap.currentTurnIndex||0;
@@ -503,7 +561,7 @@
       byId('rollBtn').disabled = !meTurn || (crisis ? false : (rolled || pending || hasChoice || hasSkip));
       byId('endTurnBtn').disabled = !meTurn || (crisis ? true : (!rolled || pending || hasChoice));
 
-      // >>> SHOW PATH CHOICE PANEL TO CHOOSER ONLY (Tile 15) <<<
+      // Path Choice UI
       const choicePanelEl = document.getElementById('choicePanel');
       if (choicePanelEl) {
         choicePanelEl.style.display = (hasChoice && meTurn) ? 'block' : 'none';
@@ -511,13 +569,13 @@
 
       // Host watchdogs
       if(roomSnap.state==='playing' && roomSnap.hostUid===uid){
-        // 1) If current turn is missing/disconnected, advance
+        // 1) Missing/disconnected → advance
         const tuid = turnUid;
         const p = roomSnap.players?.[tuid];
         if(!tuid || !p || p.connected===false){
           nextTurn(true);
         }
-        // 2) If a choice is pending, ensure the chooser actually has the turn
+        // 2) If a choice is pending, ensure chooser has the turn
         const pc = roomSnap.pendingChoice;
         if (pc) {
           const orderArr = roomSnap.turnOrder || [];
@@ -535,6 +593,7 @@
         }
       }
     }
+
     function renderFinish(){
       const box = byId('finalScores');
       const players = Object.values(roomSnap.players||{});
@@ -553,7 +612,7 @@
       const p = roomSnap.players[uidX] || {};
       const newT = Math.max(0, (p.tokens||0) + delta);
       await db.ref(`rooms/${curRoom}/players/${uidX}`).update({ tokens:newT });
-      if(uidX===uid) await checkBurnout(); // only current player triggers crisis checks
+      if(uidX===uid) await checkBurnout();
     }
     async function addTokens(delta){ return addTokensTo(uid, delta); }
 
@@ -568,7 +627,6 @@
       } else if(tokens < 5 && burned){
         await db.ref(`rooms/${curRoom}/players/${uid}`).update({ burnedOut:false });
       }
-      // Crisis trigger at 6+
       if(tokens >= 6 && !(roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid)){
         await db.ref('rooms/'+curRoom+'/pendingCrisis').set({ uid });
         await logMsg(`${me.name} must take a Crisis Roll (rolling a 1 or 2 triggers a Crisis Reset).`);
@@ -589,7 +647,7 @@
     byId('startGameBtn').addEventListener('click', async ()=>{
       if(roomSnap.hostUid!==uid) return;
       const players = roomSnap.players||{}; const updates = {};
-      const order = Object.keys(players); // reset order to current players
+      const order = Object.keys(players);
       Object.keys(players).forEach(pid=>{
         updates[`players/${pid}/hp`] = START_HP;
         updates[`players/${pid}/pos`] = 1;
@@ -599,7 +657,6 @@
         updates[`players/${pid}/skip`] = 0;
         updates[`players/${pid}/burnedOut`] = false;
       });
-      // Tiles/decks
       const tiles = defaultTiles();
       updates['tiles'] = Object.fromEntries(tiles.map(t=>[t.n,t]));
       if(!roomSnap.decks){
@@ -613,7 +670,6 @@
           discard: {action:[], life:[], career:[]}
         };
       }
-
       updates['turnOrder'] = order;
       updates['state'] = 'playing';
       updates['currentTurnIndex'] = 0;
@@ -630,22 +686,8 @@
       if(!curRoom) return;
       const rref = db.ref('rooms/'+curRoom);
       await rref.child('players/'+uid).set(null);
-      await rref.child('turnOrder').transaction(arr => (arr||[]).filter(x => x !== uid)); // remove from order
+      await rref.child('turnOrder').transaction(arr => (arr||[]).filter(x => x !== uid));
       curRoom=null; roomSnap=null; show('auth');
-    });
-
-    // Host tile image setter
-    byId('setTileImgBtn').addEventListener('click', async ()=>{
-      if(roomSnap.hostUid!==uid) return alert('Only host can edit tiles.');
-      const n = parseInt(byId('tileNum').value||''); const url = byId('tileImgUrl').value.trim();
-      if(!n || n<1 || n>BOARD_LEN) return alert('Enter valid tile number.');
-      await db.ref(`rooms/${curRoom}/tiles/${n}`).update({ imgUrl: url });
-    });
-    byId('clearTileImgBtn').addEventListener('click', async ()=>{
-      if(roomSnap.hostUid!==uid) return;
-      const n = parseInt(byId('tileNum').value||'');
-      if(!n || n<1 || n>BOARD_LEN) return alert('Enter valid tile number.');
-      await db.ref(`rooms/${curRoom}/tiles/${n}`).update({ imgUrl: '' });
     });
 
     // ===== Gameplay: ROLL =====
@@ -656,7 +698,6 @@
 
       const isCrisis = !!(roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid);
 
-      // Crisis Roll path (reset on 1 or 2)
       if(isCrisis){
         diceEl.classList.add('roll');
         const roll = 1 + Math.floor(Math.random()*6);
@@ -669,7 +710,6 @@
         return;
       }
 
-      // if skipping (STOP effect), auto end turn
       const me = roomSnap.players?.[uid]; if((me?.skip||0)>0){
         await db.ref(`rooms/${curRoom}/players/${uid}`).update({ skip:(me.skip-1) });
         await logMsg(`${me.name} skips a turn.`);
@@ -677,12 +717,10 @@
         return;
       }
 
-      // block if pending draw/choice or already rolled
       if((roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) ||
          (roomSnap.pendingChoice && roomSnap.pendingChoice.uid===uid) ||
          (roomSnap.turn && roomSnap.turn.rolled)) return;
 
-      // lock roll
       await db.ref(`rooms/${curRoom}/turn`).set({ rolled: true });
 
       diceEl.classList.add('roll');
@@ -696,7 +734,7 @@
         const meNow = roomSnap.players?.[uid];
         const newPos = Math.min(BOARD_LEN, (meNow.pos||1)+roll);
         await db.ref(`rooms/${curRoom}/players/${uid}`).update({ pos: newPos });
-        await processTile(newPos);  // GOTO → process destination and show correct popup
+        await processTile(newPos);
       }, 300);
     });
 
@@ -704,7 +742,6 @@
     byId('stealBtn').addEventListener('click', async ()=>{
       const order=roomSnap.turnOrder||[]; const turnUid=order[roomSnap.currentTurnIndex||0];
       if(turnUid!==uid) return;
-      // Can only steal at start of turn: must not have rolled, no pending, no crisis, no skip
       const me = roomSnap.players?.[uid];
       const blocked = (roomSnap.turn?.rolled) ||
                       (roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) ||
@@ -713,7 +750,6 @@
                       ((me?.skip||0)>0);
       if(blocked) return;
 
-      // Populate target list (exclude me)
       stealTarget.innerHTML='';
       Object.entries(roomSnap.players||{}).forEach(([pid,p])=>{
         if(pid===uid) return;
@@ -730,10 +766,8 @@
       if(!targetUid) return;
       stealPopup.classList.remove('show');
 
-      // mark turn consumed (prevents rolling afterwards)
       await db.ref(`rooms/${curRoom}/turn`).set({ rolled: true });
 
-      // Do the steal roll (success on 5–6)
       diceEl.classList.add('roll');
       const sRoll = 1 + Math.floor(Math.random()*6);
       setTimeout(async ()=>{
@@ -744,23 +778,18 @@
         const target = roomSnap.players[targetUid];
 
         if(sRoll>=5){
-          // success: steal 100 from target, +1 trauma to target
           const stealAmt = 100;
           await addHpTo(targetUid, -stealAmt);
           await addHp(stealAmt);
           await addTokensTo(targetUid, 1);
-
           await showPopupForAll({ kind:'event', title:'Steal Success', description:`${me.name} stole 100 HP from ${target.name}. ${target.name} gains +1 Trauma Token.`, player:`Steal Event` });
           await logMsg(`${me.name} steals 100 HP from ${target.name} (success). ${target.name} gets +1 Trauma Token.`);
         } else {
-          // fail: -50 HP to thief, +1 trauma to thief
           await addHp(-50);
           await addTokens(1);
-
           await showPopupForAll({ kind:'event', title:'Steal Failed', description:`${me.name} failed the steal and loses 50 HP and gains +1 Trauma Token.`, player:`Steal Event` });
           await logMsg(`${me.name} fails the steal: -50 HP and +1 Trauma Token.`);
         }
-        // After attempt, player can press End Turn (no movement this turn).
       }, 300);
     });
 
@@ -768,7 +797,6 @@
       if(roomSnap.state!=='playing') return;
       const order=roomSnap.turnOrder||[];
       if(order[roomSnap.currentTurnIndex||0]!==uid) return;
-      // cannot end if pending draw, choice, or crisis
       if((roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) ||
          (roomSnap.pendingChoice && roomSnap.pendingChoice.uid===uid) ||
          (roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid)) return;
@@ -799,7 +827,7 @@
       if(!pc || pc.uid!==uid) return;
       await moveBy(5);
       await db.ref('rooms/'+curRoom).update({ pendingChoice: null });
-      await processTile((roomSnap.players[uid].pos||1)); // process where we moved
+      await processTile((roomSnap.players[uid].pos||1));
     });
     byId('streetBtn').addEventListener('click', async ()=>{
       const pc = roomSnap.pendingChoice;
@@ -815,7 +843,7 @@
       await db.ref('rooms/'+curRoom).update({ log: arr.slice(-300) });
     }
 
-    // >>>>>>>>>>> TURN ROTATION (with filtering & auto-skip) <<<<<<<<<<<
+    // TURN ROTATION with filtering & auto-skip
     async function nextTurn(hostTriggered=false){
       const players = roomSnap.players || {};
       let order = (roomSnap.turnOrder || []).filter(id => !!players[id]);
@@ -825,7 +853,6 @@
       }
       let idx = roomSnap.currentTurnIndex || 0;
 
-      // Try to find next eligible player within one full cycle
       for(let attempts=0; attempts<order.length; attempts++){
         idx = (idx + 1) % order.length;
         const tuid = order[idx];
@@ -849,8 +876,6 @@
         });
         return;
       }
-
-      // If everyone is skipped/disconnected, still rotate index & reset per-turn flags
       await db.ref('rooms/' + curRoom).update({
         turnOrder: order,
         currentTurnIndex: idx,
@@ -862,30 +887,27 @@
         pendingCrisis: null
       });
     }
-    // >>>>>>>>>>> END TURN FIX <<<<<<<<<<<<<<<<<<<
 
     // Unified popup setter
     async function showPopupForAll(obj){
       await db.ref('rooms/'+curRoom+'/popup').set({ ...obj, ts: Date.now() });
     }
 
-    // ---- Tile processing (GOTO → show/apply destination) ----
+    // ---- Tile processing ----
     async function processTile(pos, depth=0){
-      if(depth>5) return; // safety
+      if(depth>5) return;
       const meNow = roomSnap.players[uid];
       const t = (roomSnap.tiles||{})[pos]; if(!t) return;
 
       if(t.action==='GOTO'){
-        await applyPostArgs(t.args||{}); // e.g., tokensAdd on 22 before moving back
+        await applyPostArgs(t.args||{});
         const dest = t.args?.tile || pos;
         await moveTo(dest);
         await processTile(dest, depth+1);
         return;
       }
 
-      // Show tile popup to everyone
       await showPopupForAll({ kind:'tile', n:t.n, title:t.title, description:t.description, player: meNow.name });
-
       await logMsg(`${meNow.name} lands on #${pos}: ${t.title}`);
 
       switch(t.action){
@@ -900,7 +922,7 @@
       }
 
       await applyPostArgs(t.args||{});
-      await checkBurnout(); // may set pendingCrisis
+      await checkBurnout();
     }
 
     async function applyPostArgs(args){
@@ -913,7 +935,7 @@
         const me = roomSnap.players[uid];
         const tokens = me.tokens||0;
         if(tokens>0){
-          const multPerToken = 0.1; // +10% per token
+          const multPerToken = 0.1;
           const newHp = Math.floor((me.hp||0) * (1 + tokens*multPerToken));
           await db.ref(`rooms/${curRoom}/players/${uid}`).update({ hp:newHp, tokens:0 });
           await logMsg(`${me.name} redeems all Trauma Tokens for a multiplier → HP ${newHp}.`);
@@ -973,7 +995,7 @@
       let ids = (await idsRef.get()).val()||[];
       if(ids.length===0){
         const disc=(await discRef.get()).val()||[];
-        ids = disc.slice(); // simple reshuffle
+        ids = disc.slice();
         await discRef.set([]);
       }
       const cardId = ids.shift();
@@ -982,11 +1004,8 @@
       await discRef.set(discArr);
 
       const card = findCard(deck, cardId);
-
-      // card popup to everyone (also covers career)
       const meName = roomSnap.players[uid]?.name || 'Someone';
       await showPopupForAll({ kind:'card', deck, title: card.title, description: card.text, player: meName });
-
       await logMsg(`${meName} draws from ${deck}: ${card.title}`);
       await applyCardEffect(card.effect||{});
     }
@@ -1015,7 +1034,6 @@
         case 'career': {
           const career = { perTurn: effect.perTurn||0 };
           await meRef.update({ career });
-          // career popup already shown by draw/choose paths
           break;
         }
         case 'careerDice': {
@@ -1053,7 +1071,6 @@
       const meName = roomSnap.players[uid]?.name || 'Someone';
       const choices = defaultDecks().career;
       const pick = choices[Math.floor(Math.random()*choices.length)];
-      // Show popup for chosen career to all (title + description)
       await showPopupForAll({ kind:'card', deck:'career', title: pick.title, description: pick.text, player: meName });
       await applyCardEffect(pick.effect);
       await logMsg(`${meName} chooses a career: ${pick.title}`);
@@ -1074,7 +1091,7 @@
     // Back to lobby
     byId('backToLobbyBtn').addEventListener('click', async ()=>{ await db.ref('rooms/'+curRoom).update({ state:'lobby' }); });
 
-    // ===== Create / Join with error handling =====
+    // ===== Create / Join =====
     async function createRoom(){
       const name = byId('playerName').value.trim();
       const avatarUrl = byId('playerAvatar').value.trim();
