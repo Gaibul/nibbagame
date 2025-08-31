@@ -19,13 +19,13 @@
     .btn.brand{border-color:#1a2a36;background:#0f1b24;color:#c9f2ff}
     .btn.ok{border-color:#16301f;background:#0e1f14;color:#d6ffe3}
     .btn.warn{border-color:#3a2b10;background:#1f1608;color:#ffe6b8}
-    input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #2a2f3a;background:#0e1116;color:var(--ink)}
-    label{font-size:12px;color:var(--muted)}
+    input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #2a2f3a;background:#0e1116;color:#e6e9ef}
+    label{font-size:12px;color:#9aa4b2}
     .sectionTitle{font-weight:700;letter-spacing:.3px;color:#cbd5e1}
-    .muted{color:var(--muted)}
+    .muted{color:#9aa4b2}
     .tag{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:#0e1821;border:1px solid #1f2a36;color:#b8deff}
     .players{display:flex;gap:10px;flex-wrap:wrap}
-    .pCard{display:flex;flex-direction:column;gap:4px;align-items:center;background:#0e1116;border:1px solid #232833;border-radius:12px;padding:10px;width:120px}
+    .pCard{display:flex;flex-direction:column;gap:4px;align-items:center;background:#0e1116;border:1px solid #232833;border-radius:12px;padding:10px;width:140px}
     .pCard img{width:64px;height:64px;border-radius:12px;object-fit:cover;border:1px solid #2a2f3a;background:#090c10}
     .boardWrap{overflow:auto;border:1px solid #232833;border-radius:14px;background:#0a0d12}
     .board{position:relative;display:grid;grid-template-columns:repeat(40, 120px);gap:8px;padding:12px}
@@ -313,7 +313,7 @@
       push(12,'Police Brutality Intro','Stopped for "fitting the description." Roughed up, no charges—trauma lingers.','JUMP',{steps:-3, tokensAdd:2});
       push(13,'Racism in Class','Classmate drops the N-word "as a joke." Teacher laughs it off. Systemic BS.','DRAW',{deck:'life',count:1});
       push(14,'Side Hustle Begins','Selling candy at school—entrepreneur vibes.','PAYDAY',{amount:100});
-      push(15,'Path Choice','Fork in the road: College dreams or street smarts?','CHOOSE_CAREER',{branch:true}); // shows choice panel
+      push(15,'Path Choice','Fork in the road: College dreams or street smarts?','CHOOSE_CAREER',{branch:true});
       push(16,'Fried Chicken Cravings','Late-night Popeyes run. You ate fried chicken like it\'s therapy.','NONE');
       push(17,'Family Drama Escalates','Mom\'s new boyfriend echoes dad\'s violence. Cycle continues.','FAMILY',{type:'partner', hpDelta:-50});
       push(18,'Watermelon Stereotype Mock','Friends roast you for loving watermelon. "Black card revoked?" Nah, own it.','JUMP',{steps:1});
@@ -396,7 +396,11 @@
       const list = byId('playerList'); list.innerHTML='';
       Object.entries(roomSnap.players||{}).forEach(([id,p])=>{
         const el = document.createElement('div'); el.className='pCard';
-        el.innerHTML = `<img src="${p.avatarUrl||''}" alt="avatar"><div>${p.name||'?'}</div><div class="muted small">${p.ready?'Ready ✅':'Not ready'}</div>`;
+        el.innerHTML = `<img src="${p.avatarUrl||''}" alt="avatar">
+                        <div>${p.name||'?'}</div>
+                        <div class="badge">HP ${p.hp ?? 0}</div>
+                        <div class="muted small">Trauma ${p.tokens ?? 0}</div>
+                        <div class="muted small">${p.ready?'Ready ✅':'Not ready'}</div>`;
         list.appendChild(el);
       });
       const players = Object.values(roomSnap.players||{});
@@ -414,7 +418,11 @@
       const hud = byId('playersHUD'); hud.innerHTML='';
       Object.entries(roomSnap.players||{}).forEach(([id,p])=>{
         const card = document.createElement('div'); card.className='pCard';
-        card.innerHTML = `<img src="${p.avatarUrl||''}"><div>${p.name||'?'}</div><div class="badge">HP ${p.hp ?? 0}</div><div class="muted small">Pos ${p.pos ?? 1} · Tokens ${p.tokens ?? 0}</div><div class="muted small">${id===turnUid?'(turn)':''}</div>`;
+        card.innerHTML = `<img src="${p.avatarUrl||''}">
+                          <div>${p.name||'?'}</div>
+                          <div class="badge">HP ${p.hp ?? 0}</div>
+                          <div class="muted small">Trauma ${p.tokens ?? 0}</div>
+                          <div class="muted small">${id===turnUid?'(turn)':''}</div>`;
         hud.appendChild(card);
       });
 
@@ -431,16 +439,17 @@
         div.innerHTML += `<div class="num">#${i}</div><h4>${t.title||''}</h4><p>${t.description||''}</p><div class="action">${t.action}</div>`;
         const tokWrap = document.createElement('div'); tokWrap.className='tokens';
         (playersByTile[String(i)]||[]).forEach(p=>{
-          const tok=document.createElement('div'); tok.className='token'; tok.title=p.name;
+          const tok=document.createElement('div'); tok.className='token'; tok.title=`${p.name} — HP ${p.hp ?? 0} — Trauma ${p.tokens ?? 0}`;
           tok.innerHTML=`<img src="${p.avatarUrl||''}">`; tokWrap.appendChild(tok);
         });
         div.appendChild(tokWrap); board.appendChild(div);
       }
 
-      // Piles active state and button gating
+      // Piles / buttons
       const pending = roomSnap.pendingDraw || null;
       const meTurn = (order[turnIdx]===uid);
       const rolled = !!(roomSnap.turn && roomSnap.turn.rolled);
+      const crisis = (roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid) ? true : false;
 
       function setPileState(kind, active, text){
         const el = byId(`pile-${kind}`), sub = byId(`pile-${kind}-sub`);
@@ -454,9 +463,11 @@
 
       if(typeof roomSnap.dice === 'number'){ renderDie(roomSnap.dice); }
 
-      // One roll per turn + resolve draws first
-      byId('rollBtn').disabled = !meTurn || rolled || (pending && pending.uid===uid);
-      byId('endTurnBtn').disabled = !meTurn || !rolled || (pending && pending.uid===uid);
+      // Roll/End gating
+      byId('rollBtn').textContent = crisis ? 'Crisis Roll' : 'Roll';
+      // Crisis roll is allowed even if already rolled; otherwise enforce one-roll-per-turn and resolve draws first
+      byId('rollBtn').disabled = !meTurn || (crisis ? false : (rolled || (pending && pending.uid===uid)));
+      byId('endTurnBtn').disabled = !meTurn || (crisis ? true : (!rolled || (pending && pending.uid===uid)));
 
       // Path choice panel
       const cp = byId('choicePanel');
@@ -467,10 +478,10 @@
       const box = byId('finalScores');
       const players = Object.values(roomSnap.players||{});
       players.sort((a,b)=> (b.hp||0)-(a.hp||0) || (a.tokens||0)-(b.tokens||0));
-      box.innerHTML = '<div class="sectionTitle">Final Standings</div>' + players.map((p,i)=>`<p>${i+1}. ${p.name} — HP ${p.hp} (tokens ${p.tokens})</p>`).join('');
+      box.innerHTML = '<div class="sectionTitle">Final Standings</div>' + players.map((p,i)=>`<p>${i+1}. ${p.name} — HP ${p.hp} (Trauma ${p.tokens})</p>`).join('');
     }
 
-    // ===== Helpers for HP/Tokens/Burnout =====
+    // ===== Helpers for HP/Trauma/Burnout/Crisis =====
     async function addHp(delta){
       const meNow = roomSnap.players[uid] || {};
       await db.ref(`rooms/${curRoom}/players/${uid}`).update({ hp:(meNow.hp||0)+delta });
@@ -486,13 +497,24 @@
       const tokens = me.tokens||0;
       const burned = !!me.burnedOut;
       if(tokens >= 5 && !burned){
-        // Lose one turn once when crossing threshold
         const skip = Math.max(0,(me.skip||0)+1);
         await db.ref(`rooms/${curRoom}/players/${uid}`).update({ skip, burnedOut:true });
         await logMsg(`${me.name} hits Burnout (5+ Trauma Tokens): loses next turn.`);
       } else if(tokens < 5 && burned){
         await db.ref(`rooms/${curRoom}/players/${uid}`).update({ burnedOut:false });
       }
+      // Crisis trigger at 6+
+      if(tokens >= 6 && !(roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid)){
+        await db.ref('rooms/'+curRoom+'/pendingCrisis').set({ uid });
+        await logMsg(`${me.name} must take a Crisis Roll (rolling a 6 triggers a Crisis Reset).`);
+      }
+    }
+    async function crisisReset(){
+      const me = roomSnap.players[uid];
+      await db.ref(`rooms/${curRoom}/players/${uid}`).update({
+        hp: 0, pos: 1, tokens: 0, skip: (me.skip||0)+1
+      });
+      await logMsg(`${me.name} undergoes a Crisis Reset: back to start, HP 0, Trauma cleared, skip next turn.`);
     }
 
     // ===== Lobby actions =====
@@ -531,6 +553,7 @@
       updates['dice'] = null;
       updates['pendingDraw'] = null;
       updates['pendingChoice'] = null;
+      updates['pendingCrisis'] = null;
       updates['turn'] = { rolled: false };
       updates['popup'] = null;
       updates['log'] = (roomSnap.log||[]).concat({ts:Date.now(), msg:'Game started!'});
@@ -561,7 +584,24 @@
       if(roomSnap.state!=='playing') return;
       const order=roomSnap.turnOrder||[]; const turnUid=order[roomSnap.currentTurnIndex||0];
       if(turnUid!==uid) return;
-      // pending draw or already rolled?
+
+      const isCrisis = !!(roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid);
+
+      // Crisis Roll path: allowed even after normal roll and regardless of pending draws
+      if(isCrisis){
+        diceEl.classList.add('roll');
+        const roll = 1 + Math.floor(Math.random()*6);
+        setTimeout(async ()=>{
+          diceEl.classList.remove('roll');
+          renderDie(roll);
+          await db.ref(`rooms/${curRoom}`).update({ dice: roll, pendingCrisis: null });
+          if(roll===6){ await crisisReset(); }
+          // after crisis roll, keep normal gating: end turn enabled if already rolled
+        }, 300);
+        return;
+      }
+
+      // Normal roll path — block if pending draw or already rolled
       if((roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) || (roomSnap.turn && roomSnap.turn.rolled)) return;
 
       // if skipping (STOP effect), auto end turn
@@ -586,7 +626,7 @@
         const meNow = roomSnap.players?.[uid];
         const newPos = Math.min(BOARD_LEN, (meNow.pos||1)+roll);
         await db.ref(`rooms/${curRoom}/players/${uid}`).update({ pos: newPos });
-        await applyTile(newPos);
+        await processTile(newPos);  // <-- fixed: process tile with GOTO handling
       }, 300);
     });
 
@@ -594,8 +634,10 @@
       if(roomSnap.state!=='playing') return;
       const order=roomSnap.turnOrder||[];
       if(order[roomSnap.currentTurnIndex||0]!==uid) return;
-      // cannot end if pending draw or choice
-      if((roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) || (roomSnap.pendingChoice && roomSnap.pendingChoice.uid===uid)) return;
+      // cannot end if pending draw, choice, or crisis
+      if((roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) ||
+         (roomSnap.pendingChoice && roomSnap.pendingChoice.uid===uid) ||
+         (roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid)) return;
       await nextTurn();
     });
 
@@ -613,6 +655,8 @@
         await db.ref('rooms/'+curRoom+'/pendingDraw').update({ count: left });
       } else {
         await db.ref('rooms/'+curRoom).update({ pendingDraw: null });
+        // After finishing a draw, re-check crisis trigger in case tokens changed
+        await checkBurnout();
       }
     }
 
@@ -622,12 +666,14 @@
       if(!pc || pc.uid!==uid) return;
       await moveBy(5);
       await db.ref('rooms/'+curRoom).update({ pendingChoice: null });
+      await processTile((roomSnap.players[uid].pos||1)); // process where we moved
     });
     byId('streetBtn').addEventListener('click', async ()=>{
       const pc = roomSnap.pendingChoice;
       if(!pc || pc.uid!==uid) return;
       await db.ref('rooms/'+curRoom+'/pendingDraw').set({ uid, deck:'action', count:1 });
       await db.ref('rooms/'+curRoom).update({ pendingChoice: null });
+      await checkBurnout();
     });
 
     async function logMsg(msg){
@@ -643,7 +689,8 @@
         popup: null,
         turn: { rolled: false },
         pendingDraw: null,
-        pendingChoice: null
+        pendingChoice: null,
+        pendingCrisis: null
       });
     }
 
@@ -653,18 +700,31 @@
       });
     }
 
-    async function applyTile(pos){
-      const t = (roomSnap.tiles||{})[pos]; if(!t) return;
+    // ---- Tile processing (fixes GOTO → show/apply destination) ----
+    async function processTile(pos, depth=0){
+      if(depth>5) return; // safety
       const meNow = roomSnap.players[uid];
+      const t = (roomSnap.tiles||{})[pos]; if(!t) return;
+
+      // If tile adds tokens/HP as side args tied to movement (like GOTO 15 with tokens), handle after main
+      if(t.action==='GOTO'){
+        // apply side args BEFORE moving if they are intended to fire on current tile
+        await applyPostArgs(t.args||{});
+        // move then process destination and show that popup (so UI matches pos)
+        const dest = t.args?.tile || pos;
+        await moveTo(dest);
+        await processTile(dest, depth+1);
+        return;
+      }
+
+      // Normal tile: show popup for this tile
       await showPopupForAll(t, meNow.name);
       await logMsg(`${meNow.name} lands on #${pos}: ${t.title}`);
 
-      // main effect
       switch(t.action){
         case 'NONE': break;
         case 'PAYDAY': await applyPayday(t.args||{}); break;
         case 'JUMP': await moveBy(t.args?.steps||0); break;
-        case 'GOTO': await moveTo(t.args?.tile||pos); break;
         case 'STOP': await applyStop(t.args?.turns||1); break;
         case 'DRAW': await setPendingDraw(t.args?.deck||'action', t.args?.count||1); break;
         case 'FAMILY': await applyFamily(t.args||{}); break;
@@ -672,8 +732,8 @@
         case 'FINISH': await finishGame(); return;
       }
 
-      // post side-effects from args (tokens, conditional HP, etc.)
       await applyPostArgs(t.args||{});
+      await checkBurnout(); // may set pendingCrisis
     }
 
     async function applyPostArgs(args){
@@ -728,10 +788,8 @@
     }
     async function moveTo(tile){
       const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
-      const meNow = roomSnap.players[uid];
       const newPos = Math.max(1, Math.min(BOARD_LEN, tile));
       await meRef.update({ pos: newPos });
-      await logMsg(`${meNow.name} goes to tile ${newPos}`);
     }
     async function applyStop(turns){
       const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
@@ -841,7 +899,7 @@
     // Back to lobby
     byId('backToLobbyBtn').addEventListener('click', async ()=>{ await db.ref('rooms/'+curRoom).update({ state:'lobby' }); });
 
-    // ===== Create / Join with error handling (no undefined writes) =====
+    // ===== Create / Join with error handling =====
     async function createRoom(){
       const name = byId('playerName').value.trim();
       const avatarUrl = byId('playerAvatar').value.trim();
@@ -853,17 +911,9 @@
         const tiles = defaultTiles();
         const roomRef = db.ref('rooms/'+code);
         const user = {
-          name,
-          avatarUrl: avatarUrl||'',
-          hp: START_HP,
-          pos: 1,
-          tokens: 0,
-          ready: false,
-          connected: true,
-          lastSeen: Date.now(),
-          career: null,
-          skip: 0,
-          burnedOut: false
+          name, avatarUrl: avatarUrl||'', hp: START_HP, pos: 1, tokens: 0,
+          ready: false, connected: true, lastSeen: Date.now(), career: null,
+          skip: 0, burnedOut: false
         };
 
         await roomRef.set({
@@ -871,7 +921,6 @@
           state: 'lobby',
           hostUid: uid,
           seed: Math.floor(Math.random()*1e9),
-          // decks omitted here; initialized on Start Game
           tiles: Object.fromEntries(tiles.map(t=>[t.n,t])),
           players: { [uid]: user },
           turnOrder: [uid],
@@ -879,6 +928,7 @@
           dice: null,
           pendingDraw: null,
           pendingChoice: null,
+          pendingCrisis: null,
           turn: { rolled: false },
           popup: null,
           log: [ {ts: Date.now(), msg: `${name} created room ${code}`} ]
@@ -908,17 +958,9 @@
 
         const userRef = roomRef.child('players/'+uid);
         const user = {
-          name,
-          avatarUrl: avatarUrl||'',
-          hp: START_HP,
-          pos: 1,
-          tokens: 0,
-          ready: false,
-          connected: true,
-          lastSeen: Date.now(),
-          career: null,
-          skip: 0,
-          burnedOut: false
+          name, avatarUrl: avatarUrl||'', hp: START_HP, pos: 1, tokens: 0,
+          ready: false, connected: true, lastSeen: Date.now(), career: null,
+          skip: 0, burnedOut: false
         };
         await userRef.update(user);
         await roomRef.child('turnOrder').transaction(arr=>{
