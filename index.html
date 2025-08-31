@@ -63,6 +63,18 @@
     .popupCard{max-width:560px;width:90%;background:#0f141b;border:1px solid #28303c;border-radius:14px;padding:16px;box-shadow:0 20px 40px rgba(0,0,0,.35)}
     .popupCard h3{margin:0 0 6px 0}
     .popupCard p{margin:0 0 10px 0;color:#b6c2d1}
+
+    /* FULL tile image inside the popup */
+    .popupImg{
+      width:100%;
+      aspect-ratio:16/9;
+      background-size:cover;
+      background-position:center;
+      border-radius:10px;
+      border:1px solid #28303c;
+      margin:10px 0;
+      display:none; /* only for tile popups with an image */
+    }
   </style>
 </head>
 <body>
@@ -197,6 +209,8 @@
   <div class="popupCard">
     <div class="small muted" id="popupWho">–</div>
     <h3 id="popupTitle">Title</h3>
+    <!-- FULL tile image -->
+    <div id="popupImage" class="popupImg"></div>
     <p id="popupDesc">Description</p>
     <div class="row" style="justify-content:flex-end">
       <button class="btn" id="popupClose">Close</button>
@@ -239,7 +253,6 @@
     measurementId: "G-1WX7CWBFGF"
   };
 
-  // Boot
   (function boot(){
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
@@ -258,7 +271,11 @@
     avatarInput.addEventListener('input', () => { avatarPreview.src = avatarInput.value || '' });
 
     // Popups
-    const popup = byId('tilePopup'), popupTitle = byId('popupTitle'), popupDesc = byId('popupDesc'), popupWho = byId('popupWho');
+    const popup = byId('tilePopup'),
+          popupTitle = byId('popupTitle'),
+          popupDesc = byId('popupDesc'),
+          popupWho = byId('popupWho'),
+          popupImg = byId('popupImage');
     byId('popupClose').onclick = () => popup.classList.remove('show');
 
     const stealPopup = byId('stealPopup'), stealTarget = byId('stealTarget');
@@ -342,9 +359,9 @@
 
     // ===== Tiles =====
     function defaultTiles(){
-      const t=[]; 
+      const t=[];
       const push=(n,title,description,action,args={})=>t.push({n,title,description,action,args,imgUrl: tileImgs[n] || ''});
-      // (same tiles as before) – omitted here for brevity in comments, but included in code:
+      /* (same content as before; kept for completeness) */
       push(1,'Start: Born in the Hood','You enter the world in a underfunded hospital. Nurses say, "Another fighter." Grab your diaper bag and hustle.','PAYDAY',{amount:50});
       push(2,'First Steps','Toddling around the projects, dodging broken glass. Mom says, "Stay inside, baby."','NONE');
       push(3,'Dad Left','Your Black dad bounced for cigarettes and never came back. Classic absentee trope—now it\'s single-mom grind time.','DRAW',{deck:'life',count:1});
@@ -417,14 +434,29 @@
       if(pop && pop.ts){
         popupTitle.textContent = pop.title || (pop.kind==='card' ? 'Card' : 'Event');
         popupDesc.textContent = pop.description || '';
+
         if(pop.kind==='card'){
           popupWho.textContent = `${pop.player||'Someone'} drew a ${cap(pop.deck)} card`;
+          if (popupImg) popupImg.style.display = 'none';
         } else if(pop.kind==='tile'){
           popupWho.textContent = `${pop.player||'Someone'} landed on #${pop.n}`;
+          // show the tile's full image if present
+          const t = (roomSnap.tiles || {})[pop.n];
+          const url = t && t.imgUrl ? t.imgUrl : '';
+          if (popupImg) {
+            if (url) {
+              popupImg.style.backgroundImage = `url('${url}')`;
+              popupImg.style.display = 'block';
+            } else {
+              popupImg.style.display = 'none';
+            }
+          }
         } else if(pop.kind==='event'){
           popupWho.textContent = pop.player || '–';
+          if (popupImg) popupImg.style.display = 'none';
         } else {
           popupWho.textContent = pop.player || '–';
+          if (popupImg) popupImg.style.display = 'none';
         }
         popup.classList.add('show');
       }
@@ -435,6 +467,7 @@
         logBox.scrollTop = logBox.scrollHeight;
       }
     }
+
     function renderLobby(){
       byId('lobbyCode').textContent = curRoom;
       byId('hostTag').textContent = roomSnap.players?.[roomSnap.hostUid]?.name || '–';
@@ -453,7 +486,6 @@
       byId('startGameBtn').disabled = !((roomSnap.hostUid===uid) && allReady);
     }
 
-    // ===== HUD/Game render =====
     function renderGame(){
       byId('gameCode').textContent = curRoom;
       const turnIdx = roomSnap.currentTurnIndex||0;
@@ -519,7 +551,7 @@
       byId('rollBtn').disabled = !meTurn || (crisis ? false : (rolled || pending || hasChoice || hasSkip));
       byId('endTurnBtn').disabled = !meTurn || (crisis ? true : (!rolled || pending || hasChoice));
 
-      // Host watchdog: skip disconnected / auto-skip and keep order in sync
+      // Host watchdog for disconnected/auto-skip players
       if(roomSnap.state==='playing' && roomSnap.hostUid===uid){
         const tuid = turnUid;
         const p = roomSnap.players?.[tuid];
@@ -536,7 +568,7 @@
       box.innerHTML = '<div class="sectionTitle">Final Standings</div>' + players.map((p,i)=>`<p>${i+1}. ${p.name} — HP ${p.hp} (Trauma Tokens ${p.tokens})</p>`).join('');
     }
 
-    // ===== Helpers for HP/Trauma/Burnout/Crisis =====
+    // ===== Helpers =====
     async function addHpTo(uidX, delta){
       const p = roomSnap.players[uidX] || {};
       await update(ref(db, `rooms/${curRoom}/players/${uidX}`), { hp:(p.hp||0)+delta });
@@ -750,7 +782,7 @@
       if(left>0){
         await update(ref(db, 'rooms/'+curRoom+'/pendingDraw'), { count: left });
       } else {
-        await update(ref(db, 'rooms/'+curRoom), { pendingDraw: null });
+        await update(ref(db, 'rooms/'+curRoom'), { pendingDraw: null });
         await checkBurnout();
       }
     }
@@ -780,7 +812,7 @@
     // ===== TURN ROTATION (supports any number of players) =====
     async function nextTurn(){
       const players = roomSnap.players || {};
-      let order = (roomSnap.turnOrder || []).filter(id => !!players[id]); // keep only existing
+      let order = (roomSnap.turnOrder || []).filter(id => !!players[id]);
       if(order.length === 0){
         await update(ref(db, 'rooms/' + curRoom), { turnOrder: [], currentTurnIndex: 0 });
         return;
@@ -810,7 +842,6 @@
         });
         return;
       }
-      // If we looped and everyone was skipped/disconnected, just park on idx
       await update(ref(db, 'rooms/' + curRoom), {
         turnOrder: order,
         currentTurnIndex: idx,
