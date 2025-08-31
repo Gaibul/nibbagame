@@ -1,816 +1,644 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Life Game — Core Rules (Firebase)</title>
-<style>
-  :root { --bg:#0f1222; --panel:#171b34; --muted:#8ea1b1; --text:#e8ecf1; --accent:#7bd389; --accent2:#6fa8ff; --danger:#ff6b6b; }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-
-  header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,rgba(15,18,34,.98),rgba(15,18,34,.80));border-bottom:1px solid #222846}
-  .wrap{max-width:1100px;margin:0 auto;padding:16px 18px}
-  h1{margin:0;font-size:20px;display:flex;align-items:center;gap:10px}
-  .badge{font-size:12px;background:#243050;color:#b9c6d3;padding:3px 8px;border-radius:999px;border:1px solid #313d61}
-  nav{display:flex;gap:10px;margin-top:12px}
-  .tab{background:#141938;border:1px solid #21274a;color:#d7deea;padding:8px 12px;border-radius:10px;cursor:pointer}
-  .tab[aria-selected="true"]{background:#1b2144;border-color:#2b355f;box-shadow:inset 0 0 0 1px #2c3b6b}
-
-  main{max-width:1100px;margin:0 auto;padding:18px;display:grid;gap:24px}
-  .panel{background:var(--panel);border:1px solid #22284a;border-radius:16px;padding:16px}
-  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-  .col{display:grid;gap:10px}
-  label{font-size:12px;color:var(--muted)}
-  input[type="text"],input[type="number"],select,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #2a3358;background:#0f1430;color:#e8ecf1}
-  textarea{min-height:72px;resize:vertical}
-  button{padding:10px 12px;border-radius:10px;border:1px solid #2b375e;background:#1c2448;color:#e8ecf1;cursor:pointer}
-  button.primary{background:linear-gradient(180deg,#2d6df7,#1a4ed8);border-color:#356af1}
-  button.ghost{background:transparent;border-color:#2b375e}
-  button.danger{background:linear-gradient(180deg,#e15b5b,#cc4040);border-color:#e15b5b}
-
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
-  @media (max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
-
-  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-  .tile-card{background:#111633;border:1px solid #242f59;border-radius:14px;padding:12px;display:grid;gap:8px;position:relative}
-  .tile-head{display:flex;align-items:center;gap:8px;justify-content:space-between}
-  .tile-idx{font-weight:600;color:#a6b6c9}
-  .tile-actions{display:flex;gap:6px}
-
-  .board{--gap:6px;display:grid;grid-auto-flow:column;grid-auto-columns:80px;gap:var(--gap);background:#0b1030;padding:10px;border-radius:14px;overflow:auto;border:1px solid #26305c}
-  .board .space{width:80px;height:80px;border-radius:10px;border:1px solid #2a3563;background:#121842;display:grid;place-items:center;position:relative}
-  .board .space .label{font-size:11px;color:#c5d2e3;text-align:center;padding:4px}
-  .token{position:absolute;bottom:4px;right:4px;width:26px;height:26px;border-radius:999px;border:2px solid rgba(255,255,255,.8);background:#9aa7ff;background-size:cover;background-position:center}
-  .token.stack2{right:32px}
-  .token.stack3{right:60px}
-
-  .players{display:flex;flex-wrap:wrap;gap:8px}
-  .pill{background:#10163a;border:1px solid #253062;padding:6px 10px;border-radius:999px;display:flex;align-items:center;gap:8px}
-  .dot{width:10px;height:10px;border-radius:999px}
-  .avatar{width:20px;height:20px;border-radius:50%;background:#334;background-size:cover;background-position:center;border:1px solid rgba(255,255,255,.6)}
-
-  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#0f1432;border:1px solid #2a3563;padding:10px 14px;border-radius:10px;display:none}
-  .muted{color:#9fb1c7}
-  .right{margin-left:auto}
-
-  /* FULL SCREEN ROOM */
-  .roombar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #22284a;background:#0e1330;position:sticky;top:0;z-index:10}
-  .roomgrid{display:grid;grid-template-columns:1fr 330px;gap:12px;height:calc(100vh - 56px);padding:12px}
-  .board.big{grid-auto-columns:110px;height:100%;border-radius:18px}
-  .side{display:grid;grid-template-rows:auto auto 1fr;gap:10px}
-  .bigdice{font-size:22px;padding:14px 18px;border-radius:14px}
-  .feed{background:#0f1432;border:1px solid #2a3563;border-radius:12px;padding:10px;overflow:auto}
-  .deckbar button{width:100%}
-
-  /* Auto-fit full-screen board */
-  .board.fit{--gap:8px;display:grid;grid-auto-flow:row;gap:var(--gap);overflow:hidden}
-  .board.fit .space{width:100%;height:100%;border-radius:12px}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HustleLife — Multiplayer (Firebase Rooms)</title>
+  <style>
+    :root { --bg:#0b0d10; --panel:#12151a; --ink:#e6e9ef; --muted:#9aa4b2; --brand:#6ee7ff; --accent:#a78bfa; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    .wrap{max-width:1100px;margin:0 auto;padding:16px}
+    .card{background:var(--panel);border:1px solid #222834;border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .row{display:flex;gap:12px;align-items:center}
+    .col{display:flex;flex-direction:column;gap:8px}
+    .grid{display:grid;gap:12px}
+    .grid2{grid-template-columns:1fr 1fr}
+    .btn{background:#1f2937;border:1px solid #374151;color:var(--ink);padding:10px 14px;border-radius:12px;cursor:pointer}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+    .btn.brand{border-color:#1a2a36;background:#0f1b24;color:#c9f2ff}
+    .btn.ok{border-color:#16301f;background:#0e1f14;color:#d6ffe3}
+    .btn.warn{border-color:#3a2b10;background:#1f1608;color:#ffe6b8}
+    input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #2a2f3a;background:#0e1116;color:var(--ink)}
+    label{font-size:12px;color:var(--muted)}
+    .sectionTitle{font-weight:700;letter-spacing:.3px;color:#cbd5e1}
+    .muted{color:var(--muted)}
+    .tag{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:#0e1821;border:1px solid #1f2a36;color:#b8deff}
+    .players{display:flex;gap:10px;flex-wrap:wrap}
+    .pCard{display:flex;flex-direction:column;gap:4px;align-items:center;background:#0e1116;border:1px solid #232833;border-radius:12px;padding:10px;width:120px}
+    .pCard img{width:64px;height:64px;border-radius:12px;object-fit:cover;border:1px solid #2a2f3a;background:#090c10}
+    .boardWrap{overflow:auto;border:1px solid #232833;border-radius:14px;background:#0a0d12}
+    .board{position:relative;display:grid;grid-template-columns:repeat(40, 120px);gap:8px;padding:12px}
+    .tile{position:relative;border:1px solid #2b3240;border-radius:12px;padding:8px;background:#0f131a;min-height:120px}
+    .tile h4{margin:0 0 6px 0;font-size:12px;color:#cbd5e1}
+    .tile p{margin:0;font-size:11px;color:#aab3c0}
+    .tile .img{position:absolute;inset:0;border-radius:11px;background:#0a0d12;background-size:cover;background-position:center;opacity:.25}
+    .tile .num{position:absolute;top:6px;right:8px;font-size:11px;color:#8aa3b8}
+    .tile .action{position:absolute;bottom:8px;left:8px;font-size:10px;color:#89f7d1;background:#06231b;border:1px solid #0c3d31;padding:2px 6px;border-radius:8px}
+    .tokens{position:absolute;bottom:6px;right:6px;display:flex;gap:2px;flex-wrap:wrap}
+    .token{width:18px;height:18px;border-radius:6px;border:1px solid #2a2f3a;background:#0e1116;overflow:hidden}
+    .token img{width:100%;height:100%;object-fit:cover}
+    .hud{display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-top:12px}
+    .pane{background:#0e1116;border:1px solid #232833;border-radius:12px;padding:12px}
+    .log{max-height:200px;overflow:auto;background:#091017;border:1px solid #162033;border-radius:10px;padding:8px}
+    .log p{margin:0 0 6px 0;color:#a8c1d4;font-size:12px}
+    .badge{padding:2px 6px;border:1px solid #2d3a31;border-radius:999px;background:#0c1c14;color:#bfead0;font-size:11px}
+    .inlineForm{display:flex;gap:8px}
+    .small{font-size:12px}
+    .danger{color:#ffb3b3}
+  </style>
 </head>
 <body>
-<header>
-  <div class="wrap">
-    <h1>Life Game <span class="badge">Multiplayer • Firebase • HP & Trauma</span></h1>
-    <nav>
-      <button class="tab" data-tab="maker" aria-selected="true">Maker</button>
-      <button class="tab" data-tab="library">Library</button>
-      <button class="tab" data-tab="play">Play</button>
-    </nav>
-  </div>
-</header>
+<div class="wrap">
+  <h1>HustleLife — Multiplayer (Firebase Rooms)</h1>
+  <p class="muted">Create/join rooms, play in real time, add images to tiles, and use any image URL as your player token.</p>
 
-<main class="wrap">
-  <!-- MAKER -->
-  <section id="maker" class="panel" role="tabpanel">
-    <div class="grid3">
+  <!-- Auth / Join -->
+  <div id="authScreen" class="card" style="display:none">
+    <div class="grid grid2">
       <div class="col">
-        <label>Game Title</label>
-        <input id="mk_title" type="text" placeholder="e.g., Birthday Life: Aadarsh Edition"/>
+        <div class="sectionTitle">Your Player</div>
+        <label>Display name</label>
+        <input id="playerName" placeholder="e.g., Gaibul" />
+        <label>Avatar image URL (internet or Google Drive public link)</label>
+        <input id="playerAvatar" placeholder="https://..." />
+        <div class="row">
+          <div class="pCard" style="width:auto">
+            <img id="avatarPreview" src="" alt="avatar" />
+            <div class="small muted">Preview</div>
+          </div>
+        </div>
+        <div class="small muted">Google Drive tip: use <code>https://drive.google.com/uc?export=view&id=FILE_ID</code></div>
       </div>
       <div class="col">
-        <label>Tiles (track length)</label>
-        <input id="mk_tilesCount" type="number" min="10" max="200" value="40"/>
+        <div class="sectionTitle">Room</div>
+        <label>Room code</label>
+        <input id="roomCode" placeholder="e.g., 5‑letter code" maxlength="8" />
+        <div class="row">
+          <button class="btn brand" id="createRoomBtn">Create Room</button>
+          <button class="btn" id="joinRoomBtn">Join Room</button>
+        </div>
+        <div class="small muted">Creating a room generates a new 5‑letter code.</div>
+        <div id="authError" class="small danger"></div>
       </div>
-      <div class="col">
-        <label>Game ID (auto on save)</label>
-        <input id="mk_gameId" type="text" placeholder="(auto)" readonly/>
+    </div>
+  </div>
+
+  <!-- Lobby -->
+  <div id="lobbyScreen" class="card" style="display:none">
+    <div class="row" style="justify-content:space-between">
+      <div class="sectionTitle">Lobby · Room <span id="lobbyCode"></span></div>
+      <div class="row">
+        <span class="tag">Host: <span id="hostTag">–</span></span>
+        <button class="btn" id="leaveRoomBtn">Leave</button>
+      </div>
+    </div>
+    <div class="players" id="playerList"></div>
+    <div class="row" style="margin-top:8px;gap:8px">
+      <button class="btn ok" id="toggleReadyBtn">Ready</button>
+      <button class="btn brand" id="startGameBtn" disabled>Start Game</button>
+    </div>
+
+    <div class="pane" style="margin-top:12px">
+      <div class="sectionTitle">Host Tools · Tile Images (optional)</div>
+      <div class="inlineForm">
+        <input id="tileNum" type="number" min="1" max="40" placeholder="Tile # (1-40)" style="width:120px" />
+        <input id="tileImgUrl" placeholder="Tile image URL" />
+        <button class="btn" id="setTileImgBtn">Set Image</button>
+        <button class="btn" id="clearTileImgBtn">Clear</button>
+      </div>
+      <div class="small muted">Paste any public image URL (supports Google Drive public links).</div>
+    </div>
+  </div>
+
+  <!-- Game -->
+  <div id="gameScreen" class="card" style="display:none">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="sectionTitle">Room <span id="gameCode"></span></div>
+        <div class="small muted">Turn: <span id="turnName">–</span> · Roll: <span id="lastRoll">–</span></div>
+      </div>
+      <div class="row">
+        <button class="btn" id="rollBtn">Roll</button>
+        <button class="btn" id="drawBtn">Draw</button>
+        <button class="btn" id="endTurnBtn">End Turn</button>
       </div>
     </div>
 
+    <div class="boardWrap" style="margin-top:12px">
+      <div class="board" id="board"></div>
+    </div>
+
+    <div class="hud">
+      <div class="pane">
+        <div class="sectionTitle">Players</div>
+        <div id="playersHUD" class="players"></div>
+      </div>
+      <div class="pane">
+        <div class="sectionTitle">Log</div>
+        <div id="log" class="log"></div>
+        <div class="row" style="margin-top:8px">
+          <input id="chatInput" placeholder="Message" />
+          <button class="btn" id="sendChatBtn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Finish -->
+  <div id="finishScreen" class="card" style="display:none">
+    <div class="sectionTitle">Game Over</div>
+    <div id="finalScores"></div>
     <div class="row" style="margin-top:10px">
-      <button id="mk_new" class="ghost">New</button>
-      <button id="mk_add10">+10 Tiles</button>
-      <button id="mk_fill" title="Load Core Rules">Load Core Rules</button>
-      <span class="right"></span>
-      <button id="mk_save" class="primary">Save Game</button>
-    </div>
-
-    <p class="muted">HP = Hustle Points. Trauma Tokens cause burnout at 5+ (skip next turn). “Family” deck in addition to Action/Life/Career.</p>
-
-    <div id="mk_tiles" class="tiles"></div>
-
-    <div class="panel" style="margin-top:14px">
-      <strong>Decks (simple line format)</strong>
-      <div class="grid3" style="margin-top:8px">
-        <div class="col">
-          <label>Career — one per line: <span class="muted">Title|SalaryHP</span></label>
-          <textarea id="mk_deck_career"></textarea>
-        </div>
-        <div class="col">
-          <label>Action — one per line: <span class="muted">Title|HP|Jump</span></label>
-          <textarea id="mk_deck_action"></textarea>
-        </div>
-        <div class="col">
-          <label>Life — one per line: <span class="muted">Title|HP|Trauma</span></label>
-          <textarea id="mk_deck_life"></textarea>
-        </div>
-      </div>
-      <div class="grid3" style="margin-top:8px">
-        <div class="col">
-          <label>Family — one per line: <span class="muted">Title|HP|KidsΔ|Trauma</span></label>
-          <textarea id="mk_deck_family"></textarea>
-        </div>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <button id="mk_applyDecks" class="ghost">Apply Deck Text</button>
-      </div>
-    </div>
-
-    <div class="panel" style="margin-top:14px">
-      <div class="row"><strong>Live Preview</strong><span class="muted">(scroll sideways)</span></div>
-      <div id="mk_boardPreview" class="board"></div>
-    </div>
-  </section>
-
-  <!-- LIBRARY -->
-  <section id="library" class="panel" role="tabpanel" hidden>
-    <div class="row" style="margin-bottom:8px;">
-      <strong>My Saved Games</strong>
-      <span class="right muted" id="lb_user"></span>
-    </div>
-    <div id="lb_list" class="list"></div>
-  </section>
-
-  <!-- PLAY (lobby) -->
-  <section id="play" class="panel" role="tabpanel" hidden>
-    <div class="grid2">
-      <div class="panel">
-        <div class="col">
-          <strong>Create Room</strong>
-          <label>From Game</label>
-          <select id="pl_gameSelect"></select>
-          <label>Room Name</label>
-          <input id="pl_roomName" type="text" placeholder="e.g., Aadarsh-bday-room"/>
-          <button id="pl_create" class="primary">Create Room</button>
-        </div>
-        <hr style="border:none;border-top:1px solid #29335e;margin:14px 0;"/>
-        <div class="col">
-          <strong>Join Room</strong>
-          <label>Room ID</label>
-          <input id="pl_roomId" type="text" placeholder="Enter a roomId"/>
-          <label>Your Display Name</label>
-          <input id="pl_name" type="text" placeholder="e.g., Player-01"/>
-          <label>Avatar (PNG) — or paste an image URL below</label>
-          <input id="pl_avatar" type="file" accept="image/png,image/jpeg,image/webp"/>
-          <label>Avatar URL (optional)</label>
-          <input id="pl_avatarUrl" type="text" placeholder="https://... or Google Drive link"/>
-          <label>Token Color</label>
-          <input id="pl_color" type="color" value="#6fa8ff"/>
-          <div class="row">
-            <button id="pl_join" class="primary">Join Room</button>
-            <button id="pl_leave" class="ghost">Leave Room</button>
-          </div>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="row" style="justify-content:space-between;align-items:center;">
-          <div>
-            <strong>Room:</strong> <span id="room_info">—</span>
-            <div class="muted" id="game_info">—</div>
-          </div>
-          <div class="row">
-            <button id="host_start" class="primary">Start</button>
-            <button id="host_reset" class="ghost">Reset</button>
-          </div>
-        </div>
-
-        <div class="players" id="pl_players" style="margin:10px 0 6px"></div>
-
-        <div class="board-wrap">
-          <div class="row" style="align-items:center; gap:12px;">
-            <button id="pl_roll" class="primary">🎲 Roll</button>
-            <div>Dice: <strong id="pl_dice">—</strong></div>
-            <div>Turn: <span id="pl_turn">—</span></div>
-          </div>
-          <div id="pl_board" class="board" style="height:260px"></div>
-        </div>
-      </div>
-    </div>
-  </section>
-</main>
-
-<!-- FULL-SCREEN ROOM -->
-<section id="room_full" hidden>
-  <div class="roombar">
-    <div>
-      <strong>Room:</strong> <span id="rf_room">—</span>
-      <div class="muted" id="rf_game">—</div>
-    </div>
-    <div class="row"><button id="rf_exit" class="ghost">Exit</button></div>
-  </div>
-  <div class="roomgrid">
-    <div id="rf_board" class="board big"></div>
-    <div class="side">
-      <div id="rf_players" class="players"></div>
-      <div class="row" style="gap:10px;align-items:center;">
-        <button id="rf_roll" class="primary bigdice">🎲 Roll</button>
-        <div>Dice: <strong id="rf_dice">—</strong></div>
-        <div>Turn: <span id="rf_turn">—</span></div>
-      </div>
-      <div class="feed">
-        <div class="row deckbar" style="gap:8px;margin-bottom:8px;">
-          <button id="rf_draw_action">Draw Action</button>
-          <button id="rf_draw_life">Draw Life</button>
-          <button id="rf_draw_family">Draw Family</button>
-          <button id="rf_choose_career">Choose Career</button>
-        </div>
-        <div class="muted" id="rf_deck_counts">—</div>
-        <div style="margin-top:8px"><strong>Tile:</strong> <span id="rf_tiletext">—</span></div>
-        <div style="margin-top:6px"><strong>Effect:</strong> <span id="rf_lastcard">—</span></div>
-      </div>
+      <button class="btn" id="backToLobbyBtn">Back to Lobby</button>
     </div>
   </div>
-</section>
+</div>
 
-<div class="toast" id="toast"></div>
+<!-- Firebase compat (works from file://) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
-<script type="module">
-/* Firebase */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref as dbRef, set, update, onValue, get, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
-  authDomain: "nomercy-8269a.firebaseapp.com",
-  databaseURL: "https://nomercy-8269a-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "nomercy-8269a",
-  storageBucket: "nomercy-8269a.firebasestorage.app",
-  messagingSenderId: "349047620790",
-  appId: "1:349047620790:web:3206ff81cb7f5413d29217",
-  measurementId: "G-1WX7CWBFGF"
-};
-const app = initializeApp(firebaseConfig);
-try{getAnalytics(app);}catch(e){}
-const auth = getAuth(app);
-const db   = getDatabase(app);
-const storage = getStorage(app);
-
-/* Utilities */
-const $  = s=>document.querySelector(s);
-const $$ = s=>Array.from(document.querySelectorAll(s));
-const toast = (m,ms=1800)=>{const n=$('#toast');n.textContent=m;n.style.display='block';setTimeout(()=>n.style.display='none', ms);};
-const randId = (len=6)=>Math.random().toString(36).slice(2,2+len);
-const directDriveUrl = (url)=>{ if(!url) return ''; try{ const u=new URL(url); if(u.hostname.includes('drive.google.com')){ const parts=u.pathname.split('/'); let id=''; const i=parts.indexOf('d'); if(i>=0 && parts[i+1]) id=parts[i+1]; if(!id) id=u.searchParams.get('id')||''; if(id) return `https://drive.google.com/uc?export=download&id=${id}`; } }catch(e){} return url; };
-
-/* Auth (anon) with “ready” promise */
-let myUid=null; let _res; const authReady=new Promise(r=>_res=r);
-signInAnonymously(auth).catch(console.warn);
-onAuthStateChanged(auth,u=>{ if(u){ myUid=u.uid; _res?.(); $('#lb_user') && ($('#lb_user').textContent=`Signed in as ${myUid.slice(0,6)}… (anon)`); loadMyGames(); refreshGameSelect(); renderMaker(); }});
-
-/* Maker state + Core Rules loader */
-let mk_state = { gameId:'', title:'', tilesCount:40, tiles:[], decks:{ career:[], action:[], life:[], family:[] } };
-
-function loadCoreRulesIntoMaker(){
-  mk_state.title = "Core Rules: 40-Tile Life";
-  mk_state.tilesCount = 40;
-
-  // helper to push
-  const T = [];
-  const add = (i, label, desc, obj={})=>{
-    T[i-1] = Object.assign({idx:i-1, label:`${label} ${i}`, desc, color:'#1b2555', money:0, action:'none', actionValue:0, actionDeck:'action', imageUrl:''}, obj);
+<script>
+  // ---- Your Firebase config (as provided) ----
+  const firebaseConfig = {
+    apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
+    authDomain: "nomercy-8269a.firebaseapp.com",
+    databaseURL: "https://nomercy-8269a-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "nomercy-8269a",
+    storageBucket: "nomercy-8269a.firebasestorage.app",
+    messagingSenderId: "349047620790",
+    appId: "1:349047620790:web:3206ff81cb7f5413d29217",
+    measurementId: "G-1WX7CWBFGF"
   };
 
-  /* Childhood 1-10 */
-  add(1, "Start", "Born in the Hood — Payday +50 HP", {action:'none', money:50, color:'#2a3f7c'});
-  add(2, "First Steps", "Flavor only", {action:'none', color:'#243a6b'});
-  add(3, "Dad Left", "Life draw; gain possible Trauma", {action:'draw', actionDeck:'life', color:'#3c2a4f'});
-  add(4, "Fried Chicken Feast", "Payday +30 HP", {action:'none', money:30, color:'#305035'});
-  add(5, "Domestic Chaos", "Stop; +2 Trauma", {action:'stop', actionValue:1, special:'addTrauma', trauma:2, color:'#4a2b2b'});
-  add(6, "Watermelon Summers", "Jump +2", {action:'jump', actionValue:2, color:'#2b4b4e'});
-  add(7, "First Racism Encounter", "Action draw", {action:'draw', actionDeck:'action', color:'#453a2b'});
-  add(8, "Corner Store Run", "If HP<50, lose 10", {action:'special', special:'lowHPFine', color:'#22345b'});
-  add(9, "Block Friends", "Mentor vibe — Family deck", {action:'draw', actionDeck:'family', color:'#253062'});
-  add(10,"End of Innocence", "Go to 11", {action:'goto', actionValue:10, color:'#3b2a5f'}); // zero-indexed later
+  // ===== Boot =====
+  (function boot(){
+    const app = firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db   = firebase.database();
 
-  /* Teen 11-20 */
-  add(11,"High School Start", "Preview careers", {action:'special', special:'previewCareer', color:'#2f355f'});
-  add(12,"Police Brutality Intro", "Jump -3; +2 Trauma", {action:'jump', actionValue:-3, special:'addTrauma', trauma:2, color:'#4a2b2b'});
-  add(13,"Racism in Class", "Life draw", {action:'draw', actionDeck:'life', color:'#453a2b'});
-  add(14,"Side Hustle Begins", "Payday +100 HP", {action:'none', money:100, color:'#305035'});
-  add(15,"Path Choice", "College or Street? Career draw then branch", {action:'special', special:'branch15', color:'#2a3a72'});
-  add(16,"Fried Chicken Cravings", "Flavor", {action:'none', color:'#2b4b4e'});
-  add(17,"Family Drama Escalates", "Family draw; -50 HP support", {action:'draw', actionDeck:'family', money:-50, color:'#4a2b2b'});
-  add(18,"Watermelon Mock", "Jump +1", {action:'jump', actionValue:1, color:'#2b4b4e'});
-  add(19,"Activism Spark", "Action draw; redeem some Trauma", {action:'draw', actionDeck:'action', special:'redeemSmall', color:'#243a6b'});
-  add(20,"Teen Graduation", "Payday +200 HP", {action:'none', money:200, color:'#305035'});
+    // ===== UI helpers =====
+    const byId = id => document.getElementById(id);
+    const screens = { auth: byId('authScreen'), lobby: byId('lobbyScreen'), game: byId('gameScreen'), finish: byId('finishScreen') };
+    const show = k => { Object.values(screens).forEach(s=>s.style.display='none'); screens[k].style.display='block'; };
 
-  /* Adulthood 21-30 */
-  add(21,"First Real Job", "Choose career (lock in salary)", {action:'career', color:'#2a3a72'});
-  add(22,"Police Brutality Strike", "Go to 15; +3 Trauma", {action:'goto', actionValue:14, special:'addTrauma', trauma:3, color:'#4a2b2b'});
-  add(23,"Racism at Work", "Stop; -100 HP", {action:'stop', money:-100, color:'#453a2b'});
-  add(24,"Hustle Payoff", "Payday: roll d6 × 50 HP", {action:'special', special:'roll50', color:'#305035'});
-  add(25,"Dad Returns? Nah", "Life draw", {action:'draw', actionDeck:'life', color:'#3c2a4f'});
-  add(26,"Fried Chicken Comfort", "Flavor", {action:'none', color:'#2b4b4e'});
-  add(27,"Domestic Echo", "Family +kid; +2 Trauma", {action:'family', actionValue:1, special:'addTrauma', trauma:2, color:'#4a2b2b'});
-  add(28,"Watermelon Festival", "Jump +3", {action:'jump', actionValue:3, color:'#2b4b4e'});
-  add(29,"Systemic Setback", "Jump -5", {action:'jump', actionValue:-5, color:'#4a2b2b'});
-  add(30,"Grind Milestone", "Action draw", {action:'draw', actionDeck:'action', color:'#243a6b'});
+    const avatarInput = byId('playerAvatar');
+    const avatarPreview = byId('avatarPreview');
+    avatarInput.addEventListener('input', () => { avatarPreview.src = avatarInput.value || '' });
 
-  /* Family Legacy 31-35 */
-  add(31,"Marriage Milestone", "Spouse card; bonus each payday", {action:'family', actionValue:0, special:'spouse', color:'#2a3a72'});
-  add(32,"Kid Arrives", "+1 kid; -100 HP", {action:'family', actionValue:1, money:-100, color:'#4a2b2b'});
-  add(33,"Family Racism Hit", "Life draw", {action:'draw', actionDeck:'life', color:'#453a2b'});
-  add(34,"Police Family Scare", "Stop; +Trauma", {action:'stop', special:'addTrauma', trauma:2, color:'#4a2b2b'});
-  add(35,"Legacy Reflection", "Redeem all Trauma → HP", {action:'special', special:'redeemAll', actionValue:30, color:'#305035'});
+    // ===== State =====
+    let uid = null, curRoom = null, roomSnap = null;
+    const START_HP = 100, BOARD_LEN = 40;
 
-  /* Boss Status 36-40 */
-  add(36,"Big Break", "Payday — double current HP", {action:'special', special:'doubleHP', color:'#305035'});
-  add(37,"Final Racism Hurdle", "Action draw", {action:'draw', actionDeck:'action', color:'#453a2b'});
-  add(38,"Police Flashback", "If Trauma>3, big payout", {action:'special', special:'traumaPayout', color:'#2a3a72'});
-  add(39,"Stereotype Roast", "Flavor", {action:'none', color:'#243a6b'});
-  add(40,"Finish: Boss Status", "Game end — highest HP wins", {action:'finish', color:'#3b2a5f'});
+    // ===== Model =====
+    function defaultTiles(){
+      const t=[]; const push=(n,title,description,action,args={})=>t.push({n,title,description,action,args,imgUrl:''});
+      push(1,'Start','A new chapter begins. Steady breath, clear goals.','PAYDAY',{amount:50});
+      push(2,'First Steps','You find your rhythm in a new neighborhood.','NONE');
+      push(3,'Mentor Found','A mentor shares time and wisdom.','DRAW',{deck:'life',count:1});
+      push(4,'Community Potluck','You help organize a local event.','PAYDAY',{amount:30});
+      push(5,'Tough Lesson','A setback teaches resilience.','STOP',{turns:1});
+      push(6,'Library Card','Resources open new ideas.','JUMP',{steps:2});
+      push(7,'After‑school Project','You step up for a team task.','DRAW',{deck:'action',count:1});
+      push(8,'Corner Shop','Budgeting day: small choices add up.','NONE');
+      push(9,'New Friends','Support network grows.','FAMILY',{type:'mentor'});
+      push(10,'Milestone','Time to level up.','GOTO',{tile:11});
+      push(11,'High School','Overcrowded classrooms, determined spirit.','DRAW',{deck:'life',count:1});
+      push(12,'Wrong Bus','Late to class; adapt fast.','JUMP',{steps:-1});
+      push(13,'Talent Show','Spotlight moment boosts confidence.','PAYDAY',{amount:60});
+      push(14,'Study Group','Peers make the load lighter.','DRAW',{deck:'action',count:1});
+      push(15,'Path Choice','College program or vocational hustle?','CHOOSE_CAREER');
+      push(16,'Part‑time Gig','Time management trial by fire.','PAYDAY',{amount:100});
+      push(17,'Family Duties','You help at home, time gets tight.','FAMILY',{type:'responsibility'});
+      push(18,'Volunteering','Service builds perspective.','JUMP',{steps:1});
+      push(19,'Presentation Day','You lead the team and learn a ton.','DRAW',{deck:'life',count:1});
+      push(20,'Graduation','Caps up, eyes forward.','PAYDAY',{amount:200});
+      push(21,'First Job','Onboarding jitters, steady progress.','CHOOSE_CAREER');
+      push(22,'Detour','Paperwork snafu reroutes you.','GOTO',{tile:15});
+      push(23,'Stretch Project','You take on more responsibility.','STOP',{turns:1});
+      push(24,'Side Hustle','Your idea starts to click.','PAYDAY',{dice:true,per:50});
+      push(25,'Old Wounds','You practice letting go to move on.','DRAW',{deck:'life',count:1});
+      push(26,'Comfort Food Night','Rest, recharge, reconnect.','NONE');
+      push(27,'Relationship Check‑in','You invest time in the people who matter.','FAMILY',{type:'bond'});
+      push(28,'Street Fair','Neighborhood energy lifts you.','JUMP',{steps:3});
+      push(29,'Housing Shuffle','Rising rents push a move.','JUMP',{steps:-5});
+      push(30,'First Wheels','Mobility expands options.','DRAW',{deck:'action',count:1});
+      push(31,'Commitment','Partners align goals and budgets.','FAMILY',{type:'partner'});
+      push(32,'New Arrival','Joy grows—and so do expenses.','FAMILY',{type:'child'});
+      push(33,'Hard Conversation','You tackle bias and boundaries with care.','DRAW',{deck:'life',count:1});
+      push(34,'Safety Workshop','Community learns, supports, plans.','STOP',{turns:1});
+      push(35,'Pass It On','You mentor someone starting out.','PAYDAY',{amount:120});
+      push(36,'Big Break','Momentum is real.','PAYDAY',{multiplier:2});
+      push(37,'Doubt Creeps','Imposter whispers—facts push back.','DRAW',{deck:'action',count:1});
+      push(38,'Old Case Closed','Lingering issue resolved; sigh of relief.','PAYDAY',{amount:150});
+      push(39,'Tell Your Story','Share the journey; others learn.','NONE');
+      push(40,'Finish','Tally HP; highest wins. Tie: fewest challenge tokens.','FINISH');
+      return Array.from({length:BOARD_LEN},(_,i)=>t[i]||{n:i+1,title:`Tile ${i+1}`,description:'Customizable.',action:'NONE',args:{},imgUrl:''});
+    }
 
-  mk_state.tiles = T;
+    function defaultDecks(){
+      const action = [
+        {id:'a1', title:'Push Through', text:'Convert 1 challenge token to +30 HP.', effect:{type:'tokenToHp', hp:30}},
+        {id:'a2', title:'Small Win', text:'+50 HP from a clever shortcut.', effect:{type:'hp', hp:50}},
+        {id:'a3', title:'Unexpected Bill', text:'-40 HP. Ouch.', effect:{type:'hp', hp:-40}},
+      ];
+      const life = [
+        {id:'l1', title:'Scholarship', text:'+100 HP. Use wisely.', effect:{type:'hp', hp:100}},
+        {id:'l2', title:'Setback', text:'Gain 1 challenge token.', effect:{type:'token', d:1}},
+        {id:'l3', title:'Therapy Session', text:'Discard up to 2 tokens, +20 HP each.', effect:{type:'discardTokensForHp', per:20, max:2}},
+      ];
+      const career = [
+        {id:'c1', title:'Apprentice', text:'+40 HP per Payday turn.', effect:{type:'career', perTurn:40}},
+        {id:'c2', title:'Analyst', text:'+60 HP per Payday turn.', effect:{type:'career', perTurn:60}},
+        {id:'c3', title:'Creator', text:'Roll‑based income (D6×20) on Payday.', effect:{type:'careerDice', per:20}},
+      ];
+      return { action, life, career };
+    }
 
-  // Decks
-  mk_state.decks = {
-    career: [
-      {title:'Engineer', salary:40},
-      {title:'Teacher', salary:30},
-      {title:'Rapper',  salary:80},     // high risk/reward is handled via Action deck too
-      {title:'Designer',salary:35},
-      {title:'Entrepreneur', salary:60}
-    ],
-    action: [
-      {title:'Stand Up to Bias', money:50, jump:0},
-      {title:'Back Down', money:-20, jump:0},
-      {title:'Viral Moment', money:120, jump:1},
-      {title:'Bad Press', money:-80, jump:-1},
-      {title:'Community Grant', money:100, jump:0}
-    ],
-    life: [
-      {title:'Mom Works Double Shifts', money:20, trauma:1||0},
-      {title:'Therapy Breakthrough', money:40, trauma:-1||0},
-      {title:'Breakup Blues', money:-30, trauma:1||0},
-      {title:'Health Scare', money:-50, trauma:0}
-    ],
-    family: [
-      {title:'Mentor Steps In', money:30, kids:0, trauma:-1||0},
-      {title:'Spouse Supports You', money:40, kids:0, trauma:0},
-      {title:'New Baby!', money:-50, kids:1, trauma:0},
-      {title:'Caring for Cousins', money:-30, kids:0, trauma:1||0}
-    ]
-  };
+    function shuffle(arr, seed){ let x=(seed>>>0)||123456789; const a=arr.slice(); for(let i=a.length-1;i>0;i--){ x^=x<<13; x^=x>>>17; x^=x<<5; const j=Math.abs(x)%(i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+    function codeGen(){ const abc='ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<5;i++) s+=abc[Math.floor(Math.random()*abc.length)]; return s; }
+    function setAuthError(msg){ byId('authError').textContent = msg; }
 
-  renderMaker(); renderPreview(); fillDeckTextareas();
-  toast('Core Rules loaded');
-}
+    // ===== Presence =====
+    function attachPresence(){
+      const pRef = db.ref(`rooms/${curRoom}/players/${uid}/connected`);
+      const lastRef = db.ref(`rooms/${curRoom}/players/${uid}/lastSeen`);
+      pRef.set(true); lastRef.set(Date.now());
+      pRef.onDisconnect().set(false);
+      lastRef.onDisconnect().set(Date.now());
+    }
 
-function fillDeckTextareas(){
-  $('#mk_deck_career').value = (mk_state.decks.career||[]).map(c=>`${c.title}|${c.salary}`).join('\n');
-  $('#mk_deck_action').value = (mk_state.decks.action||[]).map(c=>`${c.title}|${c.money||0}|${c.jump||0}`).join('\n');
-  $('#mk_deck_life').value   = (mk_state.decks.life||[]).map(c=>`${c.title}|${c.money||0}|${c.trauma||0}`).join('\n');
-  $('#mk_deck_family').value = (mk_state.decks.family||[]).map(c=>`${c.title}|${c.money||0}|${c.kids||0}|${c.trauma||0}`).join('\n');
-}
-
-/* Maker UI */
-function renderMaker(){
-  if(!$('#mk_title')) return;
-  $('#mk_title').value = mk_state.title||'';
-  $('#mk_tilesCount').value = mk_state.tilesCount;
-  $('#mk_gameId').value = mk_state.gameId||'';
-
-  while(mk_state.tiles.length < mk_state.tilesCount){
-    mk_state.tiles.push({ idx:mk_state.tiles.length, label:`Tile ${mk_state.tiles.length+1}`, desc:'', money:0, action:'none', actionValue:0, actionDeck:'action', color:'#121842', imageUrl:'' });
-  }
-  if(mk_state.tiles.length > mk_state.tilesCount){ mk_state.tiles.length = mk_state.tilesCount; }
-
-  const root = $('#mk_tiles'); root.innerHTML='';
-  mk_state.tiles.forEach((t,i)=>{
-    const card=document.createElement('div'); card.className='tile-card';
-    card.innerHTML = `
-      <div class="tile-head">
-        <div class="tile-idx">#<input data-k="idx" type="number" min="0" style="width:64px" value="${i}"/></div>
-        <div class="tile-actions">
-          <button data-act="dup">Duplicate</button>
-          <button data-act="del" class="danger">Delete</button>
-        </div>
-      </div>
-      <div class="grid2">
-        <div class="col"><label>Label</label><input data-k="label" type="text" value="${t.label||''}"/></div>
-        <div class="col"><label>Color</label><input data-k="color" type="color" value="${t.color||'#121842'}"/></div>
-      </div>
-      <div class="col"><label>Description</label><textarea data-k="desc">${t.desc||''}</textarea></div>
-      <div class="grid3">
-        <div class="col"><label>HP Δ</label><input data-k="money" type="number" value="${t.money||0}"/></div>
-        <div class="col">
-          <label>Action</label>
-          <select data-k="action">
-            <option value="none" ${t.action==='none'?'selected':''}>None</option>
-            <option value="jump" ${t.action==='jump'?'selected':''}>Jump (± steps)</option>
-            <option value="goto" ${t.action==='goto'?'selected':''}>Go to tile #</option>
-            <option value="stop" ${t.action==='stop'?'selected':''}>Stop (miss next)</option>
-            <option value="payday" ${t.action==='payday'?'selected':''}>Payday (add salary)</option>
-            <option value="family" ${t.action==='family'?'selected':''}>Family (+kids/spouse)</option>
-            <option value="draw" ${t.action==='draw'?'selected':''}>Draw Card</option>
-            <option value="career" ${t.action==='career'?'selected':''}>Choose Career</option>
-            <option value="finish" ${t.action==='finish'?'selected':''}>Finish</option>
-            <option value="special" ${t.action==='special'?'selected':''}>Special (script)</option>
-          </select>
-        </div>
-        <div class="col"><label>Action Value</label><input data-k="actionValue" type="number" value="${t.actionValue||0}"/></div>
-      </div>
-      <div class="grid2">
-        <div class="col"><label>Tile Image URL</label><input data-k="imageUrl" type="text" placeholder="https://... or Drive link" value="${t.imageUrl||''}"/></div>
-        <div class="col">
-          <label>Deck (Draw/Career/Family)</label>
-          <select data-k="actionDeck">
-            <option value="action" ${t.actionDeck==='action'?'selected':''}>Action</option>
-            <option value="life" ${t.actionDeck==='life'?'selected':''}>Life</option>
-            <option value="career" ${t.actionDeck==='career'?'selected':''}>Career</option>
-            <option value="family" ${t.actionDeck==='family'?'selected':''}>Family</option>
-          </select>
-        </div>
-      </div>
-    `;
-    card.querySelectorAll('[data-k]').forEach(el=>{
-      el.addEventListener('change', ()=>{
-        const k=el.dataset.k; let v=el.value;
-        if(k==='money'||k==='actionValue'||k==='idx') v=Number(v);
-        if(k==='imageUrl') v=directDriveUrl(v);
-        mk_state.tiles[i][k]=v;
-        if(k==='idx'){
-          const to = Math.max(0, Math.min(mk_state.tiles.length-1, v|0));
-          if(to!==i){ const [it]=mk_state.tiles.splice(i,1); mk_state.tiles.splice(to,0,it); renderMaker(); }
-        }
-        renderPreview();
+    function subscribeRoom(){
+      db.ref('rooms/'+curRoom).on('value', snap => {
+        roomSnap = snap.val();
+        if(!roomSnap){ show('auth'); return; }
+        render();
       });
-    });
-    card.querySelector('[data-act="dup"]').addEventListener('click', ()=>{ const c=JSON.parse(JSON.stringify(mk_state.tiles[i])); mk_state.tiles.splice(i+1,0,c); mk_state.tilesCount=mk_state.tiles.length; renderMaker(); renderPreview(); });
-    card.querySelector('[data-act="del"]').addEventListener('click', ()=>{ mk_state.tiles.splice(i,1); mk_state.tilesCount=mk_state.tiles.length; renderMaker(); renderPreview(); });
-    root.appendChild(card);
-  });
-  renderPreview();
-}
-function renderPreview(){
-  const b=$('#mk_boardPreview'); b.innerHTML='';
-  mk_state.tiles.forEach((t,i)=>{
-    const s=document.createElement('div'); s.className='space'; s.style.background=t.color||'#121842';
-    if(t.imageUrl){ s.style.backgroundImage=`url(${t.imageUrl})`; s.style.backgroundSize='cover'; s.style.backgroundPosition='center'; s.style.opacity=0.9; }
-    const lab=document.createElement('div'); lab.className='label';
-    let extra='';
-    if(t.action==='payday') extra=' 💰';
-    if(t.action==='draw'||t.action==='career'||(t.action==='family'&&t.actionDeck==='family')) extra=` 🃏(${t.actionDeck||'action'})`;
-    if(t.action==='family') extra+=` 👶`;
-    if(t.action==='finish') extra+=' 🏁';
-    lab.textContent=(t.label||`Tile ${i+1}`)+extra; s.appendChild(lab); b.appendChild(s);
-  });
-}
+    }
 
-/* Deck text parsing */
-const parseCareer = txt => (txt||'').split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>{const[a,b]=l.split('|');return {title:(a||'Career').trim(), salary:Number(b)||0};});
-const parseAction  = txt => (txt||'').split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>{const[a,b,c]=l.split('|');return {title:(a||'Action').trim(), money:Number(b)||0, jump:Number(c)||0};});
-const parseLife    = txt => (txt||'').split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>{const[a,b,c]=l.split('|');return {title:(a||'Life').trim(), money:Number(b)||0, trauma:Number(c)||0};});
-const parseFamily  = txt => (txt||'').split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>{const[a,b,c,d]=l.split('|');return {title:(a||'Family').trim(), money:Number(b)||0, kids:Number(c)||0, trauma:Number(d)||0};});
+    // ===== Renderers =====
+    function render(){
+      if(!roomSnap){ show('auth'); return; }
+      const state = roomSnap.state;
+      if(state==='lobby'){ renderLobby(); show('lobby'); }
+      else if(state==='playing'){ renderGame(); show('game'); }
+      else if(state==='finished'){ renderFinish(); show('finish'); }
+    }
 
-function applyDeckTextAreas(){
-  mk_state.decks.career = parseCareer($('#mk_deck_career').value);
-  mk_state.decks.action = parseAction($('#mk_deck_action').value);
-  mk_state.decks.life   = parseLife($('#mk_deck_life').value);
-  mk_state.decks.family = parseFamily($('#mk_deck_family').value);
-}
+    function renderLobby(){
+      byId('lobbyCode').textContent = curRoom;
+      byId('hostTag').textContent = roomSnap.players?.[roomSnap.hostUid]?.name || '–';
+      const list = byId('playerList'); list.innerHTML='';
+      Object.entries(roomSnap.players||{}).forEach(([id,p])=>{
+        const el = document.createElement('div'); el.className='pCard';
+        el.innerHTML = `<img src="${p.avatarUrl||''}" alt="avatar"><div>${p.name||'?'}</div><div class="muted small">${p.ready?'Ready ✅':'Not ready'}</div>`;
+        list.appendChild(el);
+      });
+      const players = Object.values(roomSnap.players||{});
+      const allReady = players.length>=2 && players.every(p=>p.ready);
+      byId('startGameBtn').disabled = !((roomSnap.hostUid===uid) && allReady);
+    }
 
-/* Maker buttons */
-$('#mk_new').addEventListener('click', ()=>{ mk_state={ gameId:'', title:'', tilesCount:40, tiles:[], decks:{ career:[], action:[], life:[], family:[] } }; renderMaker(); toast('New game'); });
-$('#mk_add10').addEventListener('click', ()=>{ mk_state.tilesCount=Math.min(200, mk_state.tilesCount+10); renderMaker(); });
-$('#mk_fill').addEventListener('click', loadCoreRulesIntoMaker);
-$('#mk_title').addEventListener('input', e=>{ mk_state.title=e.target.value; });
-$('#mk_tilesCount').addEventListener('change', e=>{ mk_state.tilesCount=Math.max(10, Math.min(200, Number(e.target.value))); renderMaker(); });
-$('#mk_applyDecks').addEventListener('click', ()=>{ applyDeckTextAreas(); toast('Decks updated (not saved)'); });
+    function renderGame(){
+      byId('gameCode').textContent = curRoom;
+      const turnIdx = roomSnap.currentTurnIndex||0;
+      const order = roomSnap.turnOrder||[];
+      const turnUid = order[turnIdx];
+      byId('turnName').textContent = roomSnap.players?.[turnUid]?.name || '–';
+      byId('lastRoll').textContent = roomSnap.dice==null ? '–' : roomSnap.dice;
 
-/* Save */
-$('#mk_save').addEventListener('click', async()=>{
-  await authReady;
-  if(!myUid){ toast('Sign-in failed'); return; }
-  mk_state.title = $('#mk_title').value.trim() || 'Untitled Life Game';
-  mk_state.tilesCount = Number($('#mk_tilesCount').value)||40;
-  mk_state.tiles.forEach((t,i)=> t.idx=i);
-  applyDeckTextAreas();
+      const hud = byId('playersHUD'); hud.innerHTML='';
+      Object.entries(roomSnap.players||{}).forEach(([id,p])=>{
+        const card = document.createElement('div'); card.className='pCard';
+        card.innerHTML = `<img src="${p.avatarUrl||''}"><div>${p.name||'?'}</div><div class="badge">HP ${p.hp ?? 0}</div><div class="muted small">Pos ${p.pos ?? 1} · Tok ${p.tokens ?? 0}</div><div class="muted small">${id===turnUid?'(turn)':''}</div>`;
+        hud.appendChild(card);
+      });
 
-  const gameId = mk_state.gameId || randId(8);
-  const gameData = { ownerUid: myUid, title: mk_state.title, tilesCount: mk_state.tilesCount, tiles: mk_state.tiles, decks: mk_state.decks, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), rules:{currency:'HP', trauma:true, burnoutAt:5} };
-  await set(dbRef(db, `games/${gameId}`), gameData);
-  await update(dbRef(db, `users/${myUid}/myGames/${gameId}`), { title: mk_state.title, updatedAt: Date.now() });
-  mk_state.gameId=gameId; $('#mk_gameId').value=gameId;
-  await refreshGameSelect(); await loadMyGames();
-  toast(`Saved game ${gameId}`);
-});
+      const board = byId('board'); board.innerHTML='';
+      const playersByTile = {};
+      Object.entries(roomSnap.players||{}).forEach(([id,p])=>{
+        const k=String(p.pos||1); (playersByTile[k] ||= []).push(p);
+      });
 
-/* Library */
-async function loadMyGames(){
-  if(!myUid) return;
-  const list=$('#lb_list'); list.innerHTML='';
-  const snap=await get(dbRef(db, `users/${myUid}/myGames`));
-  const entries=snap.exists()?Object.entries(snap.val()):[];
-  if(entries.length===0){ list.innerHTML='<div class="muted">No games saved yet. Load “Core Rules” in Maker and save.</div>'; return; }
-  for(const [gid,meta] of entries){
-    const card=document.createElement('div'); card.className='card';
-    card.innerHTML=`<div style="flex:1;"><div><strong>${meta.title||gid}</strong></div><div class="muted">ID: ${gid}</div></div>
-      <button data-act="edit">Edit</button><button data-act="room" class="primary">Make Room</button><button data-act="copy" class="ghost">Copy ID</button>`;
-    card.querySelector('[data-act="edit"]').addEventListener('click', async()=>{
-      const gs=await get(dbRef(db, `games/${gid}`));
-      if(gs.exists()){ const gv=gs.val(); mk_state={ gameId:gid, title:gv.title, tilesCount:gv.tilesCount||gv.tiles?.length||40, tiles:gv.tiles||[], decks:gv.decks||{career:[],action:[],life:[],family:[]} }; renderMaker(); fillDeckTextareas(); $$('.tab[data-tab="maker"]')[0].click(); toast('Loaded into Maker'); }
-    });
-    card.querySelector('[data-act="room"]').addEventListener('click', ()=>{ $('#pl_gameSelect').value=gid; $$('.tab[data-tab="play"]')[0].click(); toast('Use Create Room'); });
-    card.querySelector('[data-act="copy"]').addEventListener('click', ()=>{ navigator.clipboard.writeText(gid); toast('Game ID copied'); });
-    list.appendChild(card);
-  }
-}
-async function refreshGameSelect(){
-  const sel=$('#pl_gameSelect'); sel.innerHTML='';
-  const snap=await get(dbRef(db, `users/${myUid}/myGames`));
-  const entries=snap.exists()?Object.entries(snap.val()):[];
-  if(entries.length===0){ const opt=document.createElement('option'); opt.value=''; opt.textContent='— no saved games —'; sel.appendChild(opt); return; }
-  for(const [gid,meta] of entries){ const opt=document.createElement('option'); opt.value=gid; opt.textContent=`${meta.title||gid} (${gid})`; sel.appendChild(opt); }
-}
-
-/* PLAY / ROOMS */
-let currentRoomId=null, currentRoom=null, currentGame=null, isHost=false, myPlayerRef=null, unsubRoom=null;
-
-async function loadGameById(gameId){ const s=await get(dbRef(db, `games/${gameId}`)); return s.exists()?s.val():null; }
-
-/* Fit grid so all tiles are visible */
-function layoutBoardToFit(b,n){
-  if(!b||!n) return;
-  const gapVar=getComputedStyle(b).getPropertyValue('--gap').trim();
-  const g=Number(gapVar.replace('px',''))||8;
-  const r=b.getBoundingClientRect(); const W=Math.max(0,r.width), H=Math.max(0,r.height); if(!W||!H) return;
-  let cols=Math.ceil(Math.sqrt(n*(W/H))); cols=Math.max(1,Math.min(n,cols)); let rows=Math.ceil(n/cols);
-  const tileW=Math.floor((W-(cols-1)*g)/cols); const tileH=Math.floor((H-(rows-1)*g)/rows); let tile=Math.max(10,Math.min(tileW,tileH));
-  const maxCols=Math.max(1,Math.floor((W+g)/(tile+g))); cols=Math.min(cols,maxCols); rows=Math.ceil(n/cols);
-  const finalW=Math.floor((W-(cols-1)*g)/cols); const finalH=Math.floor((H-(rows-1)*g)/rows); tile=Math.max(10,Math.min(finalW,finalH));
-  b.style.gridTemplateColumns=`repeat(${cols}, ${tile}px)`; b.style.gridAutoRows=`${tile}px`;
-}
-
-/* Render helpers */
-function renderPlayersTo(id){
-  const root=document.getElementById(id); if(!root) return; root.innerHTML='';
-  const players=currentRoom?.players?Object.entries(currentRoom.players):[];
-  players.forEach(([uid,p])=>{
-    const pill=document.createElement('div'); pill.className='pill';
-    const av=document.createElement('div'); av.className='avatar'; if(p.avatarUrl){ av.style.backgroundImage=`url(${p.avatarUrl})`; }
-    const dot=document.createElement('div'); dot.className='dot'; dot.style.background=p.color||'#6fa8ff';
-    const name=document.createElement('div'); name.textContent=`${p.name||uid.slice(0,4)} • HP ${p.money|0} • @${p.position|0} • ${p.career?(`${p.career} (HP ${p.salary||0})`):'No career'} • TT ${p.trauma|0} • Kids ${p.kids|0}`;
-    pill.appendChild(av);pill.appendChild(dot);pill.appendChild(name);root.appendChild(pill);
-  });
-}
-function renderBoardTo(id, fit=false){
-  const b=document.getElementById(id); if(!b||!currentGame) return; b.classList.toggle('fit',fit); b.innerHTML='';
-  const players=currentRoom?.players?Object.entries(currentRoom.players):[];
-  currentGame.tiles.forEach((t,idx)=>{
-    const s=document.createElement('div'); s.className='space'; s.style.background=t.color||'#121842';
-    if(t.imageUrl){ s.style.backgroundImage=`url(${t.imageUrl})`; s.style.backgroundSize='cover'; s.style.backgroundPosition='center'; s.style.opacity=0.92; }
-    const lab=document.createElement('div'); lab.className='label'; lab.textContent=t.label||`Tile ${idx+1}`; s.appendChild(lab);
-    const here=players.filter(([_,p])=>(p.position|0)===idx);
-    here.forEach(([,p],i)=>{ const tok=document.createElement('div'); tok.className='token'; if(i===1) tok.classList.add('stack2'); if(i>=2) tok.classList.add('stack3');
-      tok.style.background=p.avatarUrl?undefined:(p.color||'#9aa7ff'); if(p.avatarUrl){ tok.style.backgroundImage=`url(${p.avatarUrl})`; tok.style.backgroundSize='cover'; tok.style.backgroundPosition='center'; }
-      s.appendChild(tok);
-    });
-    b.appendChild(s);
-  });
-  if(fit) layoutBoardToFit(b, currentGame.tiles.length);
-}
-function renderRoomUI(){
-  $('#room_info').textContent=currentRoomId?`${currentRoom?.name||''} • ${currentRoomId}`:'—';
-  $('#game_info').textContent=currentGame?`${currentGame.title} • ${currentGame.tilesCount} tiles`:'—';
-
-  renderPlayersTo('pl_players'); renderBoardTo('pl_board', false);
-
-  const turnUid=currentRoom?.turn?.uid; $('#pl_turn').textContent=turnUid?(currentRoom.players?.[turnUid]?.name||turnUid.slice(0,6)):'—';
-  $('#pl_dice').textContent=currentRoom?.dice?.last||'—'; $('#pl_roll').disabled=!(turnUid && turnUid===myUid && currentRoom?.started);
-
-  // full view mirror
-  $('#rf_room').textContent=$('#room_info').textContent;
-  $('#rf_game').textContent=$('#game_info').textContent;
-  $('#rf_turn').textContent=$('#pl_turn').textContent;
-  $('#rf_dice').textContent=$('#pl_dice').textContent;
-  renderPlayersTo('rf_players'); renderBoardTo('rf_board', true);
-
-  const dc=currentGame?.decks||{}; $('#rf_deck_counts').textContent=`Action: ${(dc.action?.length||0)} • Life: ${(dc.life?.length||0)} • Family: ${(dc.family?.length||0)} • Career: ${(dc.career?.length||0)}`;
-}
-
-/* Room create/join */
-async function createRoom(){
-  const selGame=$('#pl_gameSelect').value; if(!selGame){ toast('Pick a saved game'); return; }
-  const name=($('#pl_roomName').value.trim()||`room-${randId()}`).slice(0,40);
-  const rid=randId(8);
-  const game=await loadGameById(selGame); if(!game){ toast('Game not found'); return; }
-  const room={ gameId:selGame, name, hostUid:myUid, createdAt:serverTimestamp(), started:false, dice:{last:0}, players:{} };
-  await set(dbRef(db, `rooms/${rid}`), room);
-  $('#pl_roomId').value=rid; toast(`Room created: ${rid}`); await joinRoom(rid); isHost=true;
-}
-async function uploadAvatarIfNeeded(){
-  const file=$('#pl_avatar').files?.[0]; let url=$('#pl_avatarUrl').value.trim();
-  if(url) return directDriveUrl(url);
-  if(file){ const sref=storageRef(storage, `avatars/${myUid}/${Date.now()}_${file.name}`); await uploadBytes(sref,file); url=await getDownloadURL(sref); return url; }
-  return '';
-}
-async function joinRoom(roomId){
-  const name=($('#pl_name').value.trim()||`Player-${randId(3)}`).slice(0,18);
-  const color=$('#pl_color').value||'#6fa8ff';
-  const avatarUrl=await uploadAvatarIfNeeded();
-  const pRef=dbRef(db, `rooms/${roomId}/players/${myUid}`);
-  await update(pRef,{ name,color,avatarUrl:avatarUrl||null,money:100,position:0,kids:0,spouse:false,career:null,salary:0,trauma:0,skip:0,joinedAt:serverTimestamp() });
-  currentRoomId=roomId; myPlayerRef=pRef;
-
-  if(unsubRoom) unsubRoom();
-  const roomRef=dbRef(db, `rooms/${roomId}`);
-  const off=onValue(roomRef, async snap=>{
-    if(!snap.exists()){ toast('Room closed'); return; }
-    currentRoom=snap.val(); if(!currentGame){ currentGame=await loadGameById(currentRoom.gameId); }
-    renderRoomUI(); if(currentRoom.started) showRoomFull(true);
-  });
-  unsubRoom=()=>off(); toast(`Joined room ${roomId}`);
-}
-async function leaveRoom(){
-  if(!currentRoomId) return;
-  await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { leftAt:serverTimestamp() });
-  currentRoomId=null; currentRoom=null; currentGame=null; isHost=false; myPlayerRef=null; renderRoomUI(); showRoomFull(false); toast('Left room');
-}
-async function hostStart(){
-  if(!isHost||!currentRoomId) return;
-  const players=Object.keys(currentRoom.players||{});
-  if(players.length<1){ toast('Need at least 1 player'); return; }
-  const turn={ uid:players[0], idx:0 }; await update(dbRef(db, `rooms/${currentRoomId}`), { started:true, turn }); showRoomFull(true);
-}
-async function hostReset(){
-  if(!isHost||!currentRoomId) return;
-  const players=Object.keys(currentRoom.players||{});
-  const updates={}; players.forEach(uid=>{ updates[`rooms/${currentRoomId}/players/${uid}/position`]=0; updates[`rooms/${currentRoomId}/players/${uid}/money`]=100; updates[`rooms/${currentRoomId}/players/${uid}/salary`]=0; updates[`rooms/${currentRoomId}/players/${uid}/career`]=null; updates[`rooms/${currentRoomId}/players/${uid}/kids`]=0; updates[`rooms/${currentRoomId}/players/${uid}/spouse`]=false; updates[`rooms/${currentRoomId}/players/${uid}/trauma`]=0; updates[`rooms/${currentRoomId}/players/${uid}/skip`]=0; });
-  updates[`rooms/${currentRoomId}/dice/last`]=0; updates[`rooms/${currentRoomId}/started`]=false; updates[`rooms/${currentRoomId}/winner`]=null;
-  await update(dbRef(db), updates); toast('Room reset'); showRoomFull(false);
-}
-function nextTurn(){
-  const order=Object.keys(currentRoom.players||{}); if(order.length===0) return {uid:null,idx:0};
-  const curIdx=currentRoom.turn?.idx||0; const nextIdx=(curIdx+1)%order.length; return { uid:order[nextIdx], idx:nextIdx };
-}
-
-/* Deck operations */
-async function drawFromDeck(uid, deck){
-  const g=currentGame, p=currentRoom.players?.[uid]; if(!g?.decks||!g.decks[deck]||g.decks[deck].length===0){ toast(`Deck '${deck}' empty`); return null; }
-  const pool=g.decks[deck]; const card=pool[Math.floor(Math.random()*pool.length)];
-
-  let money=(card.money||0); let jump=(card.jump||0);
-  let kids=(card.kids||0); let trauma=(card.trauma||0);
-
-  const pos=p.position||0; const newPos=Math.max(0, Math.min(currentGame.tiles.length-1, pos + jump));
-  const upd={};
-
-  if(deck==='career'){ upd.career=card.title; upd.salary=Number(card.salary)||0; }
-  else { upd.money=(p.money||0)+money; upd.position=newPos; upd.kids=(p.kids||0)+kids; upd.trauma=Math.max(0,(p.trauma||0)+trauma); }
-
-  await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), upd);
-  return card;
-}
-
-/* Tile effects & rules */
-function setFeed(tileText, effectText){ $('#rf_tiletext').textContent=tileText||'—'; $('#rf_lastcard').textContent=effectText||'—'; }
-
-async function applyTileEffects(uid, idx){
-  const t=currentGame.tiles[idx]; const p=currentRoom.players?.[uid]||{money:0,kids:0,spouse:false,career:null,salary:0,trauma:0,skip:0};
-  let moneyΔ=Number(t.money||0); let newPos=idx; let note=[];
-
-  // generic actions
-  if(t.action==='jump'){ newPos=Math.max(0,Math.min(currentGame.tiles.length-1, newPos + (Number(t.actionValue)||0))); note.push(`Jump ${Number(t.actionValue)||0}`); }
-  if(t.action==='goto'){ newPos=Math.max(0,Math.min(currentGame.tiles.length-1, Number(t.actionValue)||0)); note.push(`Go to ${Number(t.actionValue)||0 + 1}`); }
-  if(t.action==='stop'){ const skip=(p.skip||0)+1; await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { skip }); note.push(`Stop — miss next turn`); }
-  if(t.action==='payday'){ moneyΔ += (p.salary||0); note.push(`Payday +HP ${p.salary||0}`); }
-  if(t.action==='family'){
-    // spouse or kid
-    if(t.special==='spouse' && !p.spouse){ await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { spouse:true }); note.push('Spouse joined (bonus at paydays)'); }
-    const addKids = Number(t.actionValue)||0; if(addKids>0){ await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { kids:(p.kids||0)+addKids }); moneyΔ -= 50*addKids; note.push(`+${addKids} kid(s) (upkeep -50 each now)`); }
-  }
-  if(t.action==='draw'||t.action==='career'){ const deckName=(t.action==='career')?'career':(t.actionDeck||'action'); const c=await drawFromDeck(uid, deckName); if(c){ note.push(`${deckName[0].toUpperCase()+deckName.slice(1)}: ${c.title}${(c.money?` (${c.money>0?'+':''}${c.money} HP)`:``)}`); } }
-  if(t.action==='finish'){
-    // winner: highest HP; tie → fewest trauma
-    const players=Object.entries(currentRoom.players||{});
-    let best=null;
-    players.forEach(([u,pp])=>{
-      if(!best) best=[u,pp];
-      else{
-        if((pp.money|0)>(best[1].money|0)) best=[u,pp];
-        else if((pp.money|0)===(best[1].money|0) && (pp.trauma|0)<(best[1].trauma|0)) best=[u,pp];
+      for(let i=1;i<=BOARD_LEN;i++){
+        const t = (roomSnap.tiles||{})[i] || {n:i,title:`Tile ${i}`,description:'',action:'NONE',args:{},imgUrl:''};
+        const div = document.createElement('div'); div.className='tile';
+        if(t.imgUrl){ const im=document.createElement('div'); im.className='img'; im.style.backgroundImage = `url('${t.imgUrl}')`; div.appendChild(im); }
+        div.innerHTML += `<div class="num">#${i}</div><h4>${t.title||''}</h4><p>${t.description||''}</p><div class="action">${t.action}</div>`;
+        const tokWrap = document.createElement('div'); tokWrap.className='tokens';
+        (playersByTile[String(i)]||[]).forEach(p=>{
+          const tok=document.createElement('div'); tok.className='token'; tok.title=p.name;
+          tok.innerHTML=`<img src="${p.avatarUrl||''}">`; tokWrap.appendChild(tok);
+        });
+        div.appendChild(tokWrap); board.appendChild(div);
       }
+
+      const log = byId('log'); log.innerHTML='';
+      (roomSnap.log||[]).slice(-200).forEach(l=>{
+        const p=document.createElement('p'); const d=new Date(l.ts||Date.now());
+        p.textContent = `[${d.toLocaleTimeString()}] ${l.msg}`; log.appendChild(p);
+      });
+
+      const myTurn = order[turnIdx]===uid;
+      byId('rollBtn').disabled = !myTurn;
+      byId('drawBtn').disabled = !myTurn;
+      byId('endTurnBtn').disabled = !myTurn;
+    }
+
+    function renderFinish(){
+      const box = byId('finalScores');
+      const players = Object.values(roomSnap.players||{});
+      players.sort((a,b)=> (b.hp||0)-(a.hp||0) || (a.tokens||0)-(b.tokens||0));
+      box.innerHTML = '<div class="sectionTitle">Final Standings</div>' + players.map((p,i)=>`<p>${i+1}. ${p.name} — HP ${p.hp} (tokens ${p.tokens})</p>`).join('');
+    }
+
+    // ===== Lobby actions =====
+    byId('toggleReadyBtn').addEventListener('click', async ()=>{
+      await db.ref(`rooms/${curRoom}/players/${uid}`).update({ ready: !(roomSnap.players?.[uid]?.ready) });
     });
-    await update(dbRef(db, `rooms/${currentRoomId}`), { started:false, winner: best?best[0]:uid });
-    note.push('Finish! Tally HP.');
-  }
 
-  // specials
-  if(t.special==='addTrauma'){ const newT=(p.trauma||0)+(t.trauma||0); await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { trauma:newT }); note.push(`Trauma +${t.trauma||0}`); if(newT>=5){ await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { skip:(p.skip||0)+1 }); note.push('Burnout — miss next turn'); } }
-  if(t.special==='lowHPFine'){ if((p.money|0)<50){ moneyΔ-=10; note.push('Low HP fee -10'); } }
-  if(t.special==='previewCareer'){ const list=(currentGame.decks?.career||[]).map(c=>c.title).slice(0,5).join(', '); note.push(`Preview: ${list}`); }
-  if(t.special==='branch15'){
-    // draw career preview/choice
-    await drawFromDeck(uid,'career');
-    const college = confirm('Path Choice — OK = College (Jump +5), Cancel = Street Hustle (draw Action)');
-    if(college){ newPos=Math.max(0, Math.min(currentGame.tiles.length-1, idx+5)); note.push('College path: Jump +5'); }
-    else{ const c=await drawFromDeck(uid,'action'); note.push(`Street path: Action — ${c?c.title:''}`); }
-  }
-  if(t.special==='redeemSmall'){ const give=Math.min(p.trauma||0, 1); if(give>0){ await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { trauma:(p.trauma||0)-give }); moneyΔ += 20*give; note.push(`Redeem Trauma x${give} → +${20*give} HP`); } }
-  if(t.special==='redeemAll'){ const all=p.trauma||0; if(all>0){ await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { trauma:0 }); moneyΔ += (Number(t.actionValue)||30)*all; note.push(`Redeem ${all} Tokens → +${(Number(t.actionValue)||30)*all} HP`); } }
-  if(t.special==='roll50'){ const d=1+Math.floor(Math.random()*6); moneyΔ += d*50; note.push(`Roll ${d} → +${d*50} HP`); }
-  if(t.special==='doubleHP'){ moneyΔ += (p.money||0); note.push('Double current HP'); }
-  if(t.special==='traumaPayout'){ if((p.trauma||0)>3){ moneyΔ += 300; note.push('Trauma payout +300 HP'); } else { moneyΔ += 50; note.push('+50 HP'); } }
+    byId('startGameBtn').addEventListener('click', async ()=>{
+      if(roomSnap.hostUid!==uid) return;
+      const players = roomSnap.players||{}; const updates = {};
+      Object.keys(players).forEach(pid=>{
+        updates[`players/${pid}/hp`] = START_HP;
+        updates[`players/${pid}/pos`] = 1;
+        updates[`players/${pid}/tokens`] = 0;
+        updates[`players/${pid}/ready`] = false;
+        updates[`players/${pid}/career`] = null;
+      });
+      updates['state'] = 'playing';
+      updates['currentTurnIndex'] = 0;
+      updates['dice'] = null;
+      updates['log'] = (roomSnap.log||[]).concat({ts:Date.now(), msg:'Game started!'});
+      await db.ref('rooms/'+curRoom).update(updates);
+    });
 
-  const newMoney=(p.money|0)+moneyΔ; await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { position:newPos, money:newMoney });
-  setFeed(`${t.label}: ${t.desc||''}`, note.join(' • '));
-  if(moneyΔ!==0) toast(`${(moneyΔ>0?'+':'')}${moneyΔ} HP`);
-}
+    byId('leaveRoomBtn').addEventListener('click', async ()=>{
+      if(!curRoom) return;
+      await db.ref(`rooms/${curRoom}/players/${uid}`).set(null);
+      curRoom=null; roomSnap=null; show('auth');
+    });
 
-/* Turn flow */
-function orderList(){ return Object.keys(currentRoom.players||{}); }
-function myTurnUid(){ return currentRoom?.turn?.uid||null; }
-async function advanceTurn(){
-  const order=orderList(); if(order.length===0) return;
-  const cur=currentRoom.turn?.idx||0; const next=(cur+1)%order.length;
-  await update(dbRef(db, `rooms/${currentRoomId}/`), { turn:{ uid:order[next], idx:next } });
-}
-async function rollDice(){
-  if(!currentRoomId || !currentRoom?.started) return;
-  const tUid=myTurnUid(); if(tUid!==myUid){ toast('Not your turn'); return; }
-  const me=currentRoom.players?.[myUid]; if(!me) return;
+    // Host tile image setter
+    byId('setTileImgBtn').addEventListener('click', async ()=>{
+      if(roomSnap.hostUid!==uid) return alert('Only host can edit tiles.');
+      const n = parseInt(byId('tileNum').value||''); const url = byId('tileImgUrl').value.trim();
+      if(!n || n<1 || n>BOARD_LEN) return alert('Enter valid tile number.');
+      await db.ref(`rooms/${curRoom}/tiles/${n}`).update({ imgUrl: url });
+    });
+    byId('clearTileImgBtn').addEventListener('click', async ()=>{
+      if(roomSnap.hostUid!==uid) return;
+      const n = parseInt(byId('tileNum').value||'');
+      if(!n || n<1 || n>BOARD_LEN) return alert('Enter valid tile number.');
+      await db.ref(`rooms/${curRoom}/tiles/${n}`).update({ imgUrl: '' });
+    });
 
-  // skip if burnout/stop
-  if((me.skip||0)>0){
-    await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { skip:(me.skip||0)-1 });
-    toast('Skipping this turn'); await advanceTurn(); return;
-  }
+    // ===== Gameplay =====
+    byId('rollBtn').addEventListener('click', async ()=>{
+      if(roomSnap.state!=='playing') return;
+      const order=roomSnap.turnOrder||[]; const turnUid=order[roomSnap.currentTurnIndex||0];
+      if(turnUid!==uid) return;
+      const roll = 1 + Math.floor(Math.random()*6);
+      await db.ref(`rooms/${curRoom}`).update({ dice: roll });
 
-  const roll=1+Math.floor(Math.random()*6);
-  await update(dbRef(db, `rooms/${currentRoomId}/dice`), { last:roll, by:myUid, ts:serverTimestamp() });
+      const meNow = roomSnap.players?.[uid];
+      const newPos = Math.min(BOARD_LEN, (meNow.pos||1)+roll);
+      await db.ref(`rooms/${curRoom}/players/${uid}`).update({ pos: newPos });
+      await applyTile(newPos);
+    });
 
-  let pos=me.position||0;
-  let dest=(pos + roll); if(dest>=currentGame.tiles.length) dest = currentGame.tiles.length-1; // end cap
-  await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { position:dest });
+    byId('drawBtn').addEventListener('click', async ()=>{
+      if(roomSnap.state!=='playing') return;
+      const order=roomSnap.turnOrder||[];
+      if(order[roomSnap.currentTurnIndex||0]!==uid) return;
+      await drawCard('action',1);
+    });
 
-  await applyTileEffects(myUid, dest);
-  await advanceTurn();
-}
+    byId('endTurnBtn').addEventListener('click', async ()=>{
+      if(roomSnap.state!=='playing') return;
+      const order=roomSnap.turnOrder||[];
+      if(order[roomSnap.currentTurnIndex||0]!==uid) return;
+      await nextTurn();
+    });
 
-/* UI wires */
-$('#pl_create').addEventListener('click', createRoom);
-$('#pl_join').addEventListener('click', async()=>{ const rid=$('#pl_roomId').value.trim(); if(!rid){ toast('Enter a room ID'); return; } await joinRoom(rid); isHost=currentRoom?.hostUid===myUid; });
-$('#pl_leave').addEventListener('click', leaveRoom);
-$('#host_start').addEventListener('click', hostStart);
-$('#host_reset').addEventListener('click', hostReset);
-$('#pl_roll').addEventListener('click', rollDice);
+    async function logMsg(msg){
+      const arr = (roomSnap.log||[]);
+      arr.push({ts:Date.now(), msg});
+      await db.ref('rooms/'+curRoom).update({ log: arr.slice(-300) });
+    }
+    async function nextTurn(){
+      const order=roomSnap.turnOrder||[]; let idx=(roomSnap.currentTurnIndex||0)+1; if(idx>=order.length) idx=0;
+      await db.ref('rooms/'+curRoom').update({ currentTurnIndex: idx, dice: null });
+    }
 
-/* Full view controls */
-function showRoomFull(show){
-  const rf=$('#room_full'); rf.hidden=!show;
-  document.querySelector('header').style.display=show?'none':'';
-  ['maker','library','play'].forEach(id=>{ const el=document.getElementById(id); if(el) el.hidden=show; });
-  if(show && currentGame){ const b=$('#rf_board'); layoutBoardToFit(b,currentGame.tiles.length); }
-}
-$('#rf_exit')?.addEventListener('click', ()=>showRoomFull(false));
-$('#rf_roll')?.addEventListener('click', rollDice);
-$('#rf_draw_action')?.addEventListener('click', async()=>{ const u=myTurnUid(); if(!u) return; const c=await drawFromDeck(u,'action'); if(c) setFeed('Deck', `Action: ${c.title} ${(c.money?`(${c.money>0?'+':''}${c.money} HP)`:``)}`); });
-$('#rf_draw_life')?.addEventListener('click', async()=>{ const u=myTurnUid(); if(!u) return; const c=await drawFromDeck(u,'life'); if(c) setFeed('Deck', `Life: ${c.title} ${(c.money?`(${c.money>0?'+':''}${c.money} HP)`:``)}`); });
-$('#rf_draw_family')?.addEventListener('click', async()=>{ const u=myTurnUid(); if(!u) return; const c=await drawFromDeck(u,'family'); if(c) setFeed('Deck', `Family: ${c.title} ${(c.money?`(${c.money>0?'+':''}${c.money} HP)`:``)}`); });
-$('#rf_choose_career')?.addEventListener('click', async()=>{ const u=myTurnUid(); if(!u) return; const c=await drawFromDeck(u,'career'); if(c) setFeed('Career', `${c.title} (HP ${c.salary||0})`); });
+    async function applyTile(pos){
+      const t = (roomSnap.tiles||{})[pos]; if(!t) return;
+      await logMsg(`${roomSnap.players[uid].name} lands on #${pos}: ${t.title}`);
+      switch(t.action){
+        case 'NONE': break;
+        case 'PAYDAY': await applyPayday(t.args||{}); break;
+        case 'JUMP': await moveBy(t.args?.steps||0); break;
+        case 'GOTO': await moveTo(t.args?.tile||pos); break;
+        case 'STOP': await applyStop(t.args?.turns||1); break;
+        case 'DRAW': await drawCard(t.args?.deck||'action', t.args?.count||1); break;
+        case 'FAMILY': await applyFamily(t.args||{}); break;
+        case 'CHOOSE_CAREER': await chooseCareer(); break;
+        case 'FINISH': await finishGame(); return;
+      }
+    }
 
-/* Resize fit */
-window.addEventListener('resize', ()=>{ const b=$('#rf_board'); if(b && !b.hidden && currentGame) layoutBoardToFit(b,currentGame.tiles.length); });
+    async function applyPayday(args){
+      const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
+      const meNow = roomSnap.players[uid];
+      let delta = 0;
+      if(args.amount) delta += args.amount;
+      if(args.multiplier) delta += (meNow.hp||0) * (args.multiplier-1);
+      if(args.dice) delta += (1 + Math.floor(Math.random()*6)) * (args.per||0);
+      if(meNow.career?.perTurn) delta += meNow.career.perTurn;
+      if(meNow.career?.dice){ delta += (1 + Math.floor(Math.random()*6)) * (meNow.career.per||20); }
+      await meRef.update({ hp: (meNow.hp||0) + delta });
+      await logMsg(`${meNow.name} Payday: ${delta>=0?'+':''}${delta} HP`);
+    }
 
-/* Keyboard shortcut */
-window.addEventListener('keydown', e=>{ if(e.key.toLowerCase()==='r'){ if(!$('#pl_roll').disabled || !$('#rf_roll')?.disabled) rollDice(); } });
+    async function moveBy(steps){
+      const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
+      const meNow = roomSnap.players[uid];
+      const newPos = Math.max(1, Math.min(BOARD_LEN, (meNow.pos||1)+steps));
+      await meRef.update({ pos: newPos });
+      await logMsg(`${meNow.name} ${steps>=0?'jumps':'falls'} ${steps} to ${newPos}`);
+    }
+    async function moveTo(tile){
+      const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
+      const meNow = roomSnap.players[uid];
+      const newPos = Math.max(1, Math.min(BOARD_LEN, tile));
+      await meRef.update({ pos: newPos });
+      await logMsg(`${meNow.name} goes to tile ${newPos}`);
+    }
+    async function applyStop(turns){
+      await logMsg(`${roomSnap.players[uid].name} pauses for ${turns} turn(s).`);
+      const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
+      const meNow = roomSnap.players[uid];
+      const skip = Math.max(0, (meNow.skip||0) + (turns||1));
+      await meRef.update({ skip });
+    }
 
-/* Tabs */
-function showTab(name){
-  ['maker','library','play'].forEach(id=>{
-    const sec=document.getElementById(id); const btn=document.querySelector(`.tab[data-tab="${id}"]`);
-    if(!sec||!btn) return;
-    if(id===name){ sec.hidden=false; btn.setAttribute('aria-selected','true'); } else { sec.hidden=true; btn.removeAttribute('aria-selected'); }
-  });
-}
-$$('.tab').forEach(btn=>btn.addEventListener('click', ()=>showTab(btn.dataset.tab)));
-document.addEventListener('DOMContentLoaded', ()=>{ try{ renderMaker(); loadCoreRulesIntoMaker(); showTab('maker'); }catch(e){} });
+    async function drawCard(deck,count){ for(let i=0;i<count;i++) await drawOne(deck); }
+    async function drawOne(deck){
+      const idsRef = db.ref(`rooms/${curRoom}/decks/ids/${deck}`);
+      const discRef = db.ref(`rooms/${curRoom}/decks/discard/${deck}`);
+      let ids = (await idsRef.get()).val()||[];
+      if(ids.length===0){
+        const disc=(await discRef.get()).val()||[];
+        const seed = roomSnap.seed||12345;
+        ids = shuffle(disc, seed+Math.floor(Math.random()*999));
+        await discRef.set([]);
+      }
+      const cardId = ids.shift();
+      await idsRef.set(ids);
+      const discArr = ((roomSnap.decks?.discard?.[deck])||[]).concat(cardId);
+      await discRef.set(discArr);
+
+      const card = findCard(deck, cardId);
+      await logMsg(`${roomSnap.players[uid].name} draws: ${card.title}`);
+      await applyCardEffect(card.effect||{});
+    }
+    function findCard(deck,id){ const d=defaultDecks(); return (d[deck]||[]).find(c=>c.id===id)||{id,title:'Unknown',text:'',effect:{}}; }
+
+    async function applyCardEffect(effect){
+      const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
+      const meNow = roomSnap.players[uid];
+      switch(effect.type){
+        case 'hp': await meRef.update({ hp:(meNow.hp||0)+(effect.hp||0) }); break;
+        case 'token': await meRef.update({ tokens:(meNow.tokens||0)+(effect.d||0) }); break;
+        case 'discardTokensForHp': {
+          const take = Math.min(effect.max||0, meNow.tokens||0);
+          const gain = (effect.per||0) * take;
+          await meRef.update({ tokens:(meNow.tokens||0)-take, hp:(meNow.hp||0)+gain });
+          break;
+        }
+        case 'tokenToHp': {
+          if((meNow.tokens||0)>0){
+            await meRef.update({ tokens:(meNow.tokens||0)-1, hp:(meNow.hp||0)+(effect.hp||0) });
+          }
+          break;
+        }
+        case 'career': {
+          const career = { perTurn: effect.perTurn||0 };
+          await meRef.update({ career });
+          break;
+        }
+        case 'careerDice': {
+          const career = { dice:true, per: effect.per||20 };
+          await meRef.update({ career });
+          break;
+        }
+      }
+    }
+
+    async function applyFamily(args){
+      const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
+      const meNow = roomSnap.players[uid];
+      switch(args.type){
+        case 'mentor': await meRef.update({ hp:(meNow.hp||0)+40 }); await logMsg('Mentor boosts +40 HP'); break;
+        case 'responsibility': await meRef.update({ tokens:(meNow.tokens||0)+1 }); await logMsg('Life responsibility adds 1 token'); break;
+        case 'bond': await meRef.update({ hp:(meNow.hp||0)+30 }); await logMsg('Strong bonds +30 HP'); break;
+        case 'partner': await meRef.update({ hp:(meNow.hp||0)+60 }); await logMsg('Partner support +60 HP'); break;
+        case 'child': await meRef.update({ hp:(meNow.hp||0)-100 }); await logMsg('New child expenses −100 HP'); break;
+      }
+    }
+
+    async function chooseCareer(){
+      const meNow = roomSnap.players[uid];
+      const choices = defaultDecks().career;
+      const pick = choices[Math.floor(Math.random()*choices.length)];
+      await applyCardEffect(pick.effect);
+      await logMsg(`${meNow.name} chooses a career: ${pick.title}`);
+    }
+
+    async function finishGame(){
+      await db.ref('rooms/'+curRoom).update({ state:'finished', log:(roomSnap.log||[]).concat({ts:Date.now(), msg:'Finished! Tally scores.'}) });
+    }
+
+    // ===== Chat =====
+    byId('sendChatBtn').addEventListener('click', async ()=>{
+      if(!curRoom) return;
+      const msg = byId('chatInput').value.trim();
+      if(!msg) return;
+      await logMsg(`${roomSnap.players?.[uid]?.name||'Player'}: ${msg}`);
+      byId('chatInput').value='';
+    });
+
+    // ===== Back to lobby =====
+    byId('backToLobbyBtn').addEventListener('click', async ()=>{ await db.ref('rooms/'+curRoom).update({ state:'lobby' }); });
+
+    // ===== Create / Join =====
+    function seed(){ return Math.floor(Math.random()*1e9); }
+    function makeDeckIds(s){ const d=defaultDecks(); return { action: shuffle(d.action.map(c=>c.id), s+11), life: shuffle(d.life.map(c=>c.id), s+17), career: shuffle(d.career.map(c=>c.id), s+23) }; }
+
+    async function createRoom(){
+      const name = byId('playerName').value.trim();
+      const avatarUrl = byId('playerAvatar').value.trim();
+      if(!name) return setAuthError('Please enter a display name.');
+      const code = codeGen(); const s = seed(); const deckIds = makeDeckIds(s); const tiles = defaultTiles();
+      const roomRef = db.ref('rooms/'+code);
+      const user = { name, avatarUrl: avatarUrl||'', hp: START_HP, pos:1, tokens:0, ready:false, connected:true, lastSeen: Date.now(), career:null };
+      await roomRef.set({
+        createdAt: firebase.database.ServerValue.TIMESTAMP,
+        state: 'lobby',
+        hostUid: uid,
+        seed: s,
+        decks: { ids: deckIds, discard: {action:[], life:[], career:[]} },
+        tiles: Object.fromEntries(tiles.map(t=>[t.n,t])),
+        players: { [uid]: user },
+        turnOrder: [uid],
+        currentTurnIndex: 0,
+        dice: null,
+        log: [ {ts: Date.now(), msg: `${name} created room ${code}`} ]
+      });
+      curRoom = code; attachPresence(); subscribeRoom();
+    }
+
+    async function joinRoom(){
+      const name = byId('playerName').value.trim();
+      const avatarUrl = byId('playerAvatar').value.trim();
+      const code = byId('roomCode').value.trim().toUpperCase();
+      if(!name) return setAuthError('Please enter a display name.');
+      if(!code) return setAuthError('Please enter a room code.');
+      const roomRef = db.ref('rooms/'+code); const snap = await roomRef.get();
+      if(!snap.exists()) return setAuthError('Room not found.');
+      const userRef = roomRef.child('players/'+uid);
+      const user = { name, avatarUrl: avatarUrl||'', hp: START_HP, pos:1, tokens:0, ready:false, connected:true, lastSeen: Date.now(), career:null };
+      await userRef.update(user);
+      await roomRef.child('turnOrder').transaction(arr=>{ if(!arr) return [uid]; if(!arr.includes(uid)) arr.push(uid); return arr; });
+      curRoom = code; attachPresence(); subscribeRoom();
+    }
+
+    byId('createRoomBtn').addEventListener('click', createRoom);
+    byId('joinRoomBtn').addEventListener('click', joinRoom);
+
+    // ===== Auth =====
+    auth.onAuthStateChanged(async user => {
+      if(user){ uid = user.uid; show('auth'); }
+      else { await auth.signInAnonymously(); }
+    });
+  })();
 </script>
+
+<!--
+  ==============================
+  Realtime Database Rules (prototype)
+  ==============================
+  Use test rules while prototyping; then lock down.
+
+  {
+    "rules": {
+      ".read": true,
+      ".write": true
+    }
+  }
+-->
 </body>
 </html>
