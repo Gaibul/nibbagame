@@ -250,13 +250,8 @@
     const diceEl = byId('dice');
     const pips = Array.from(diceEl.querySelectorAll('.pip'));
     // Map face -> which pips are visible (positions 1..9 in 3x3)
-    const faces = {
-      1:[5], 2:[1,9], 3:[1,5,9], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9]
-    };
-    function renderDie(n){
-      pips.forEach((pip,i)=>pip.classList.add('hide'));
-      (faces[n]||[]).forEach(idx=> pips[idx-1].classList.remove('hide'));
-    }
+    const faces = { 1:[5], 2:[1,9], 3:[1,5,9], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9] };
+    function renderDie(n){ pips.forEach(p=>p.classList.add('hide')); (faces[n]||[]).forEach(i=>pips[i-1].classList.remove('hide')); }
     renderDie(1);
 
     // ===== State =====
@@ -357,7 +352,12 @@
 
       // Shared popup (if any)
       const pop = roomSnap.popup;
-      if(pop && pop.ts){ popupTitle.textContent = pop.title || 'Tile'; popupDesc.textContent = pop.description || ''; popupWho.textContent = `${pop.player||'Someone'} landed on #${pop.n}`; popup.classList.add('show'); }
+      if(pop && pop.ts){
+        popupTitle.textContent = pop.title || 'Tile';
+        popupDesc.textContent = pop.description || '';
+        popupWho.textContent = `${pop.player||'Someone'} landed on #${pop.n}`;
+        popup.classList.add('show');
+      }
     }
     function renderLobby(){
       byId('lobbyCode').textContent = curRoom;
@@ -406,9 +406,11 @@
         div.appendChild(tokWrap); board.appendChild(div);
       }
 
-      // Piles active state
+      // Piles active state and button gating
       const pending = roomSnap.pendingDraw || null;
-      const meTurn = order[turnIdx]===uid;
+      const meTurn = (order[turnIdx]===uid);
+      const rolled = !!(roomSnap.turn && roomSnap.turn.rolled);
+
       function setPileState(kind, active, text){
         const el = byId(`pile-${kind}`), sub = byId(`pile-${kind}-sub`);
         if(active){ el.classList.add('active'); el.style.cursor='pointer'; }
@@ -421,9 +423,10 @@
 
       // Dice face from last roll (if any)
       if(typeof roomSnap.dice === 'number'){ renderDie(roomSnap.dice); }
-      // Enable/disable buttons
-      byId('rollBtn').disabled = !meTurn || (pending && pending.uid===uid); // block roll if you owe a draw
-      byId('endTurnBtn').disabled = !meTurn || (pending && pending.uid===uid); // must finish draw first
+
+      // 🔒 allow exactly one roll per turn; must resolve draws before ending
+      byId('rollBtn').disabled = !meTurn || rolled || (pending && pending.uid===uid);
+      byId('endTurnBtn').disabled = !meTurn || !rolled || (pending && pending.uid===uid);
     }
     function renderFinish(){
       const box = byId('finalScores');
@@ -450,6 +453,7 @@
       updates['currentTurnIndex'] = 0;
       updates['dice'] = null;
       updates['pendingDraw'] = null;
+      updates['turn'] = { rolled: false };   // reset roll lock
       updates['popup'] = null;
       updates['log'] = (roomSnap.log||[]).concat({ts:Date.now(), msg:'Game started!'});
       await db.ref('rooms/'+curRoom).update(updates);
@@ -474,16 +478,20 @@
       await db.ref(`rooms/${curRoom}/tiles/${n}`).update({ imgUrl: '' });
     });
 
-    // Gameplay
+    // ===== Gameplay =====
     byId('rollBtn').addEventListener('click', async ()=>{
       if(roomSnap.state!=='playing') return;
       const order=roomSnap.turnOrder||[]; const turnUid=order[roomSnap.currentTurnIndex||0];
       if(turnUid!==uid) return;
-      // block if pending draw
-      if(roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) return;
+      // block if pending draw or already rolled
+      if((roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) || (roomSnap.turn && roomSnap.turn.rolled)) return;
+
+      // lock the turn immediately so user can't spam
+      await db.ref(`rooms/${curRoom}/turn`).set({ rolled: true });
 
       diceEl.classList.add('roll');
       const roll = 1 + Math.floor(Math.random()*6);
+
       setTimeout(async ()=>{
         diceEl.classList.remove('roll');
         renderDie(roll);
@@ -513,7 +521,7 @@
       const pending = roomSnap.pendingDraw;
       const order=roomSnap.turnOrder||[]; const myTurn = order[roomSnap.currentTurnIndex||0]===uid;
       if(!pending || !myTurn || pending.uid!==uid || pending.deck!==deck) return;
-      await drawCard(deck, 1, true); // true => via pending
+      await drawCard(deck, 1, true); // single draw per click
       // decrement or clear pending
       const left = (pending.count||1) - 1;
       if(left>0){
@@ -530,7 +538,13 @@
     }
     async function nextTurn(){
       const order=roomSnap.turnOrder||[]; let idx=(roomSnap.currentTurnIndex||0)+1; if(idx>=order.length) idx=0;
-      await db.ref('rooms/' + curRoom).update({ currentTurnIndex: idx, dice: null, popup: null });
+      await db.ref('rooms/' + curRoom).update({
+        currentTurnIndex: idx,
+        dice: null,
+        popup: null,
+        turn: { rolled: false },  // reset lock
+        pendingDraw: null         // safety clear
+      });
     }
 
     async function showPopupForAll(t, playerName){
@@ -551,7 +565,7 @@
         case 'GOTO': await moveTo(t.args?.tile||pos); break;
         case 'STOP': await applyStop(t.args?.turns||1); break;
         case 'DRAW': {
-          // NEW: set a pending draw instead of drawing immediately
+          // set a pending draw instead of drawing immediately
           const count = Math.max(1, t.args?.count || 1);
           const deck = (t.args?.deck||'action');
           await db.ref('rooms/'+curRoom+'/pendingDraw').set({ uid, deck, count });
@@ -596,7 +610,7 @@
       await meRef.update({ skip });
     }
 
-    async function drawCard(deck,count,fromPending=false){ for(let i=0;i<count;i++) await drawOne(deck); }
+    async function drawCard(deck,count){ for(let i=0;i<count;i++) await drawOne(deck); }
     async function drawOne(deck){
       const idsRef = db.ref(`rooms/${curRoom}/decks/ids/${deck}`);
       const discRef = db.ref(`rooms/${curRoom}/decks/discard/${deck}`);
@@ -705,6 +719,7 @@
         currentTurnIndex: 0,
         dice: null,
         pendingDraw: null,
+        turn: { rolled: false },
         popup: null,
         log: [ {ts: Date.now(), msg: `${name} created room ${code}`} ]
       });
