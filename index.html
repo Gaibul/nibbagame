@@ -18,7 +18,6 @@
     .btn[disabled]{opacity:.5;cursor:not-allowed}
     .btn.brand{border-color:#1a2a36;background:#0f1b24;color:#c9f2ff}
     .btn.ok{border-color:#16301f;background:#0e1f14;color:#d6ffe3}
-    .btn.warn{border-color:#3a2b10;background:#1f1608;color:#ffe6b8}
     input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #2a2f3a;background:#0e1116;color:var(--ink)}
     label{font-size:12px;color:var(--muted)}
     .sectionTitle{font-weight:700;letter-spacing:.3px;color:#cbd5e1}
@@ -38,14 +37,35 @@
     .tokens{position:absolute;bottom:6px;right:6px;display:flex;gap:2px;flex-wrap:wrap}
     .token{width:18px;height:18px;border-radius:6px;border:1px solid #2a2f3a;background:#0e1116;overflow:hidden}
     .token img{width:100%;height:100%;object-fit:cover}
-    .hud{display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-top:12px}
+    .hud{display:grid;grid-template-columns:1.1fr 1.9fr;gap:12px;margin-top:12px}
     .pane{background:#0e1116;border:1px solid #232833;border-radius:12px;padding:12px}
-    .log{max-height:200px;overflow:auto;background:#091017;border:1px solid #162033;border-radius:10px;padding:8px}
+    .log{max-height:220px;overflow:auto;background:#091017;border:1px solid #162033;border-radius:10px;padding:8px}
     .log p{margin:0 0 6px 0;color:#a8c1d4;font-size:12px}
     .badge{padding:2px 6px;border:1px solid #2d3a31;border-radius:999px;background:#0c1c14;color:#bfead0;font-size:11px}
     .inlineForm{display:flex;gap:8px}
     .small{font-size:12px}
     .danger{color:#ffb3b3}
+
+    /* Dice */
+    .diceWrap{display:flex;align-items:center;gap:12px}
+    .dice{width:84px;height:84px;background:#eaeef5;border-radius:16px;border:4px solid #c7d0dc;box-shadow:inset 0 6px 14px rgba(0,0,0,.2), 0 8px 18px rgba(0,0,0,.25);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:8px;transition:transform .35s ease}
+    .dice.roll{transform:rotate(20deg)}
+    .pip{width:14px;height:14px;background:#1b2430;border-radius:999px;justify-self:center;align-self:center}
+    .pip.hide{visibility:hidden}
+
+    /* Draw piles */
+    .piles{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+    .pile{width:140px;height:90px;border-radius:12px;border:2px dashed #28405a;background:#0b1622;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:not-allowed;opacity:.5}
+    .pile.active{border-style:solid;background:#0f2133;cursor:pointer;opacity:1}
+    .pile h4{margin:0;font-size:13px;color:#cfe7ff}
+    .pile .sub{font-size:11px;color:#8fb6db}
+
+    /* Popup */
+    .popup{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:50}
+    .popup.show{display:flex}
+    .popupCard{max-width:560px;width:90%;background:#0f141b;border:1px solid #28303c;border-radius:14px;padding:16px;box-shadow:0 20px 40px rgba(0,0,0,.35)}
+    .popupCard h3{margin:0 0 6px 0}
+    .popupCard p{margin:0 0 10px 0;color:#b6c2d1}
   </style>
 </head>
 <body>
@@ -116,12 +136,25 @@
     <div class="row" style="justify-content:space-between;align-items:flex-start">
       <div>
         <div class="sectionTitle">Room <span id="gameCode"></span></div>
-        <div class="small muted">Turn: <span id="turnName">–</span> · Roll: <span id="lastRoll">–</span></div>
+        <div class="small muted">Turn: <span id="turnName">–</span></div>
       </div>
       <div class="row">
-        <button class="btn" id="rollBtn">Roll</button>
-        <button class="btn" id="drawBtn">Draw</button>
-        <button class="btn" id="endTurnBtn">End Turn</button>
+        <div class="diceWrap">
+          <div id="dice" class="dice" title="Dice">
+            <!-- 3x3 pips -->
+            <div class="pip" data-pos="1"></div>
+            <div class="pip" data-pos="2"></div>
+            <div class="pip" data-pos="3"></div>
+            <div class="pip" data-pos="4"></div>
+            <div class="pip" data-pos="5"></div>
+            <div class="pip" data-pos="6"></div>
+            <div class="pip" data-pos="7"></div>
+            <div class="pip" data-pos="8"></div>
+            <div class="pip" data-pos="9"></div>
+          </div>
+          <button class="btn" id="rollBtn">Roll</button>
+          <button class="btn" id="endTurnBtn">End Turn</button>
+        </div>
       </div>
     </div>
 
@@ -133,7 +166,15 @@
       <div class="pane">
         <div class="sectionTitle">Players</div>
         <div id="playersHUD" class="players"></div>
+
+        <div class="sectionTitle" style="margin-top:10px">Draw Piles</div>
+        <div class="piles">
+          <div class="pile" id="pile-action"><h4>Action Deck</h4><div class="sub" id="pile-action-sub">Inactive</div></div>
+          <div class="pile" id="pile-life"><h4>Life Deck</h4><div class="sub" id="pile-life-sub">Inactive</div></div>
+          <div class="pile" id="pile-career"><h4>Career Deck</h4><div class="sub" id="pile-career-sub">Inactive</div></div>
+        </div>
       </div>
+
       <div class="pane">
         <div class="sectionTitle">Log</div>
         <div id="log" class="log"></div>
@@ -151,6 +192,18 @@
     <div id="finalScores"></div>
     <div class="row" style="margin-top:10px">
       <button class="btn" id="backToLobbyBtn">Back to Lobby</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shared Tile Popup -->
+<div id="tilePopup" class="popup">
+  <div class="popupCard">
+    <div class="small muted" id="popupWho">–</div>
+    <h3 id="popupTitle">Tile</h3>
+    <p id="popupDesc">Description</p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn" id="popupClose">Close</button>
     </div>
   </div>
 </div>
@@ -188,6 +241,23 @@
     const avatarInput = byId('playerAvatar');
     const avatarPreview = byId('avatarPreview');
     avatarInput.addEventListener('input', () => { avatarPreview.src = avatarInput.value || '' });
+
+    // Popup
+    const popup = byId('tilePopup'), popupTitle = byId('popupTitle'), popupDesc = byId('popupDesc'), popupWho = byId('popupWho');
+    byId('popupClose').onclick = () => popup.classList.remove('show');
+
+    // Dice helpers
+    const diceEl = byId('dice');
+    const pips = Array.from(diceEl.querySelectorAll('.pip'));
+    // Map face -> which pips are visible (positions 1..9 in 3x3)
+    const faces = {
+      1:[5], 2:[1,9], 3:[1,5,9], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9]
+    };
+    function renderDie(n){
+      pips.forEach((pip,i)=>pip.classList.add('hide'));
+      (faces[n]||[]).forEach(idx=> pips[idx-1].classList.remove('hide'));
+    }
+    renderDie(1);
 
     // ===== State =====
     let uid = null, curRoom = null, roomSnap = null;
@@ -261,7 +331,7 @@
     function shuffle(arr, seed){ let x=(seed>>>0)||123456789; const a=arr.slice(); for(let i=a.length-1;i>0;i--){ x^=x<<13; x^=x>>>17; x^=x<<5; const j=Math.abs(x)%(i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; }
     function codeGen(){ const abc='ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<5;i++) s+=abc[Math.floor(Math.random()*abc.length)]; return s; }
 
-    // ===== Presence =====
+    // Presence
     function attachPresence(){
       const pRef = db.ref(`rooms/${curRoom}/players/${uid}/connected`);
       const lastRef = db.ref(`rooms/${curRoom}/players/${uid}/lastSeen`);
@@ -277,13 +347,17 @@
       });
     }
 
-    // ===== Renderers =====
+    // Renderers
     function render(){
       if(!roomSnap){ show('auth'); return; }
       const state = roomSnap.state;
       if(state==='lobby'){ renderLobby(); show('lobby'); }
       else if(state==='playing'){ renderGame(); show('game'); }
       else if(state==='finished'){ renderFinish(); show('finish'); }
+
+      // Shared popup (if any)
+      const pop = roomSnap.popup;
+      if(pop && pop.ts){ popupTitle.textContent = pop.title || 'Tile'; popupDesc.textContent = pop.description || ''; popupWho.textContent = `${pop.player||'Someone'} landed on #${pop.n}`; popup.classList.add('show'); }
     }
     function renderLobby(){
       byId('lobbyCode').textContent = curRoom;
@@ -304,8 +378,8 @@
       const order = roomSnap.turnOrder||[];
       const turnUid = order[turnIdx];
       byId('turnName').textContent = roomSnap.players?.[turnUid]?.name || '–';
-      byId('lastRoll').textContent = roomSnap.dice==null ? '–' : roomSnap.dice;
 
+      // HUD
       const hud = byId('playersHUD'); hud.innerHTML='';
       Object.entries(roomSnap.players||{}).forEach(([id,p])=>{
         const card = document.createElement('div'); card.className='pCard';
@@ -313,6 +387,7 @@
         hud.appendChild(card);
       });
 
+      // Board
       const board = byId('board'); board.innerHTML='';
       const playersByTile = {};
       Object.entries(roomSnap.players||{}).forEach(([id,p])=>{
@@ -331,16 +406,24 @@
         div.appendChild(tokWrap); board.appendChild(div);
       }
 
-      const log = byId('log'); log.innerHTML='';
-      (roomSnap.log||[]).slice(-200).forEach(l=>{
-        const p=document.createElement('p'); const d=new Date(l.ts||Date.now());
-        p.textContent = `[${d.toLocaleTimeString()}] ${l.msg}`; log.appendChild(p);
-      });
+      // Piles active state
+      const pending = roomSnap.pendingDraw || null;
+      const meTurn = order[turnIdx]===uid;
+      function setPileState(kind, active, text){
+        const el = byId(`pile-${kind}`), sub = byId(`pile-${kind}-sub`);
+        if(active){ el.classList.add('active'); el.style.cursor='pointer'; }
+        else { el.classList.remove('active'); el.style.cursor='not-allowed'; }
+        sub.textContent = text || (active ? 'Click to draw' : 'Inactive');
+      }
+      setPileState('action', pending && meTurn && pending.uid===uid && pending.deck==='action', pending?.deck==='action'?`Draw ${pending.count}`:'Inactive');
+      setPileState('life',   pending && meTurn && pending.uid===uid && pending.deck==='life',   pending?.deck==='life'?`Draw ${pending.count}`:'Inactive');
+      setPileState('career', pending && meTurn && pending.uid===uid && pending.deck==='career', pending?.deck==='career'?`Draw ${pending.count}`:'Inactive');
 
-      const myTurn = order[turnIdx]===uid;
-      byId('rollBtn').disabled = !myTurn;
-      byId('drawBtn').disabled = !myTurn;
-      byId('endTurnBtn').disabled = !myTurn;
+      // Dice face from last roll (if any)
+      if(typeof roomSnap.dice === 'number'){ renderDie(roomSnap.dice); }
+      // Enable/disable buttons
+      byId('rollBtn').disabled = !meTurn || (pending && pending.uid===uid); // block roll if you owe a draw
+      byId('endTurnBtn').disabled = !meTurn || (pending && pending.uid===uid); // must finish draw first
     }
     function renderFinish(){
       const box = byId('finalScores');
@@ -349,7 +432,7 @@
       box.innerHTML = '<div class="sectionTitle">Final Standings</div>' + players.map((p,i)=>`<p>${i+1}. ${p.name} — HP ${p.hp} (tokens ${p.tokens})</p>`).join('');
     }
 
-    // ===== Lobby actions =====
+    // Lobby actions
     byId('toggleReadyBtn').addEventListener('click', async ()=>{
       await db.ref(`rooms/${curRoom}/players/${uid}`).update({ ready: !(roomSnap.players?.[uid]?.ready) });
     });
@@ -366,6 +449,8 @@
       updates['state'] = 'playing';
       updates['currentTurnIndex'] = 0;
       updates['dice'] = null;
+      updates['pendingDraw'] = null;
+      updates['popup'] = null;
       updates['log'] = (roomSnap.log||[]).concat({ts:Date.now(), msg:'Game started!'});
       await db.ref('rooms/'+curRoom).update(updates);
     });
@@ -389,31 +474,54 @@
       await db.ref(`rooms/${curRoom}/tiles/${n}`).update({ imgUrl: '' });
     });
 
-    // ===== Gameplay =====
+    // Gameplay
     byId('rollBtn').addEventListener('click', async ()=>{
       if(roomSnap.state!=='playing') return;
       const order=roomSnap.turnOrder||[]; const turnUid=order[roomSnap.currentTurnIndex||0];
       if(turnUid!==uid) return;
-      const roll = 1 + Math.floor(Math.random()*6);
-      await db.ref(`rooms/${curRoom}`).update({ dice: roll });
+      // block if pending draw
+      if(roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) return;
 
-      const meNow = roomSnap.players?.[uid];
-      const newPos = Math.min(BOARD_LEN, (meNow.pos||1)+roll);
-      await db.ref(`rooms/${curRoom}/players/${uid}`).update({ pos: newPos });
-      await applyTile(newPos);
+      diceEl.classList.add('roll');
+      const roll = 1 + Math.floor(Math.random()*6);
+      setTimeout(async ()=>{
+        diceEl.classList.remove('roll');
+        renderDie(roll);
+        await db.ref(`rooms/${curRoom}`).update({ dice: roll });
+
+        const meNow = roomSnap.players?.[uid];
+        const newPos = Math.min(BOARD_LEN, (meNow.pos||1)+roll);
+        await db.ref(`rooms/${curRoom}/players/${uid}`).update({ pos: newPos });
+        await applyTile(newPos);
+      }, 300);
     });
-    byId('drawBtn').addEventListener('click', async ()=>{
-      if(roomSnap.state!=='playing') return;
-      const order=roomSnap.turnOrder||[];
-      if(order[roomSnap.currentTurnIndex||0]!==uid) return;
-      await drawCard('action',1);
-    });
+
     byId('endTurnBtn').addEventListener('click', async ()=>{
       if(roomSnap.state!=='playing') return;
       const order=roomSnap.turnOrder||[];
       if(order[roomSnap.currentTurnIndex||0]!==uid) return;
+      // cannot end if pending draw
+      if(roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) return;
       await nextTurn();
     });
+
+    // Draw piles click
+    byId('pile-action').addEventListener('click', ()=>handlePile('action'));
+    byId('pile-life').addEventListener('click', ()=>handlePile('life'));
+    byId('pile-career').addEventListener('click', ()=>handlePile('career'));
+    async function handlePile(deck){
+      const pending = roomSnap.pendingDraw;
+      const order=roomSnap.turnOrder||[]; const myTurn = order[roomSnap.currentTurnIndex||0]===uid;
+      if(!pending || !myTurn || pending.uid!==uid || pending.deck!==deck) return;
+      await drawCard(deck, 1, true); // true => via pending
+      // decrement or clear pending
+      const left = (pending.count||1) - 1;
+      if(left>0){
+        await db.ref('rooms/'+curRoom+'/pendingDraw').update({ count: left });
+      } else {
+        await db.ref('rooms/'+curRoom).update({ pendingDraw: null });
+      }
+    }
 
     async function logMsg(msg){
       const arr = (roomSnap.log||[]);
@@ -422,20 +530,33 @@
     }
     async function nextTurn(){
       const order=roomSnap.turnOrder||[]; let idx=(roomSnap.currentTurnIndex||0)+1; if(idx>=order.length) idx=0;
-      // ✅ fixed: no stray quote
-      await db.ref('rooms/' + curRoom).update({ currentTurnIndex: idx, dice: null });
+      await db.ref('rooms/' + curRoom).update({ currentTurnIndex: idx, dice: null, popup: null });
+    }
+
+    async function showPopupForAll(t, playerName){
+      await db.ref('rooms/'+curRoom+'/popup').set({
+        n: t.n, title: t.title, description: t.description, player: playerName, ts: Date.now()
+      });
     }
 
     async function applyTile(pos){
       const t = (roomSnap.tiles||{})[pos]; if(!t) return;
-      await logMsg(`${roomSnap.players[uid].name} lands on #${pos}: ${t.title}`);
+      const playerName = roomSnap.players[uid].name;
+      await showPopupForAll(t, playerName); // shared popup
+      await logMsg(`${playerName} lands on #${pos}: ${t.title}`);
       switch(t.action){
         case 'NONE': break;
         case 'PAYDAY': await applyPayday(t.args||{}); break;
         case 'JUMP': await moveBy(t.args?.steps||0); break;
         case 'GOTO': await moveTo(t.args?.tile||pos); break;
         case 'STOP': await applyStop(t.args?.turns||1); break;
-        case 'DRAW': await drawCard(t.args?.deck||'action', t.args?.count||1); break;
+        case 'DRAW': {
+          // NEW: set a pending draw instead of drawing immediately
+          const count = Math.max(1, t.args?.count || 1);
+          const deck = (t.args?.deck||'action');
+          await db.ref('rooms/'+curRoom+'/pendingDraw').set({ uid, deck, count });
+          break;
+        }
         case 'FAMILY': await applyFamily(t.args||{}); break;
         case 'CHOOSE_CAREER': await chooseCareer(); break;
         case 'FINISH': await finishGame(); return;
@@ -475,7 +596,7 @@
       await meRef.update({ skip });
     }
 
-    async function drawCard(deck,count){ for(let i=0;i<count;i++) await drawOne(deck); }
+    async function drawCard(deck,count,fromPending=false){ for(let i=0;i<count;i++) await drawOne(deck); }
     async function drawOne(deck){
       const idsRef = db.ref(`rooms/${curRoom}/decks/ids/${deck}`);
       const discRef = db.ref(`rooms/${curRoom}/decks/discard/${deck}`);
@@ -492,7 +613,7 @@
       await discRef.set(discArr);
 
       const card = findCard(deck, cardId);
-      await logMsg(`${roomSnap.players[uid].name} draws: ${card.title}`);
+      await logMsg(`${roomSnap.players[uid].name} draws from ${deck}: ${card.title}`);
       await applyCardEffect(card.effect||{});
     }
     function findCard(deck,id){ const d=defaultDecks(); return (d[deck]||[]).find(c=>c.id===id)||{id,title:'Unknown',text:'',effect:{}}; }
@@ -549,7 +670,7 @@
       await db.ref('rooms/'+curRoom).update({ state:'finished', log:(roomSnap.log||[]).concat({ts:Date.now(), msg:'Finished! Tally scores.'}) });
     }
 
-    // ===== Chat =====
+    // Chat
     byId('sendChatBtn').addEventListener('click', async ()=>{
       if(!curRoom) return;
       const msg = byId('chatInput').value.trim();
@@ -558,10 +679,10 @@
       byId('chatInput').value='';
     });
 
-    // ===== Back to lobby =====
+    // Back to lobby
     byId('backToLobbyBtn').addEventListener('click', async ()=>{ await db.ref('rooms/'+curRoom).update({ state:'lobby' }); });
 
-    // ===== Create / Join =====
+    // Create / Join
     function seed(){ return Math.floor(Math.random()*1e9); }
     function makeDeckIds(s){ const d=defaultDecks(); return { action: shuffle(d.action.map(c=>c.id), s+11), life: shuffle(d.life.map(c=>c.id), s+17), career: shuffle(d.career.map(c=>c.id), s+23) }; }
 
@@ -583,6 +704,8 @@
         turnOrder: [uid],
         currentTurnIndex: 0,
         dice: null,
+        pendingDraw: null,
+        popup: null,
         log: [ {ts: Date.now(), msg: `${name} created room ${code}`} ]
       });
       curRoom = code; attachPresence(); subscribeRoom();
@@ -604,7 +727,7 @@
     byId('createRoomBtn').addEventListener('click', createRoom);
     byId('joinRoomBtn').addEventListener('click', joinRoom);
 
-    // ===== Auth =====
+    // Auth
     auth.onAuthStateChanged(async user => {
       if(user){ uid = user.uid; show('auth'); }
       else { await auth.signInAnonymously(); }
