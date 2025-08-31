@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HustleLife — Multiplayer (Firebase Rooms)</title>
+  <title>HustleLife — Life of a Nigga (aka Aadarsh))</title>
   <style>
     :root { --bg:#0b0d10; --panel:#12151a; --ink:#e6e9ef; --muted:#9aa4b2; --brand:#6ee7ff; --accent:#a78bfa; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; }
     *{box-sizing:border-box}
@@ -158,8 +158,7 @@
             <div class="pip" data-pos="9"></div>
           </div>
           <button class="btn" id="rollBtn">Roll</button>
-          <button class="btn" id="stealBtn" style="display:none">Attempt Steal</button>
-          <button class="btn" id="moveBtn" style="display:none">Move Normally</button>
+          <button class="btn warn" id="stealBtn">Attempt Steal</button>
           <button class="btn" id="endTurnBtn">End Turn</button>
         </div>
       </div>
@@ -229,7 +228,7 @@
 <div id="stealPopup" class="popup">
   <div class="popupCard">
     <h3>Choose a target</h3>
-    <p class="small muted">Attempt Steal: if the steal roll is 5–6 you take 100 HP and give the target +1 Trauma Token. Otherwise you lose 50 HP and gain +1 Trauma Token.</p>
+    <p class="small muted">Attempt Steal (consumes your turn). Roll 5–6 → steal 100 HP and give target +1 Trauma Token. Roll 1–4 → you lose 50 HP and gain +1 Trauma Token.</p>
     <label for="stealTarget">Player</label>
     <select id="stealTarget"></select>
     <div class="row" style="justify-content:flex-end;margin-top:8px">
@@ -473,13 +472,14 @@
         div.appendChild(tokWrap); board.appendChild(div);
       }
 
-      // Piles / buttons & gating
+      // Action gating
       const pending = roomSnap.pendingDraw || null;
       const meTurn = (order[turnIdx]===uid);
       const rolled = !!(roomSnap.turn && roomSnap.turn.rolled);
       const crisis = (roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid) ? true : false;
-      const stealOffer = (roomSnap.stealOffer && roomSnap.stealOffer.uid===uid) ? roomSnap.stealOffer : null;
+      const me = roomSnap.players?.[uid];
 
+      // Enable/disable piles
       function setPileState(kind, active, text){
         const el = byId(`pile-${kind}`), sub = byId(`pile-${kind}-sub`);
         if(active){ el.classList.add('active'); el.style.cursor='pointer'; }
@@ -493,20 +493,17 @@
       if(typeof roomSnap.dice === 'number'){ renderDie(roomSnap.dice); }
 
       // Buttons
+      const hasSkip = (me?.skip||0)>0;
+      const hasChoice = !!(roomSnap.pendingChoice && roomSnap.pendingChoice.uid===uid);
+      const canActBase = meTurn && !rolled && !pending && !hasChoice && !crisis && !hasSkip;
+
+      byId('stealBtn').style.display = canActBase ? 'inline-block' : 'none';
+      byId('stealBtn').disabled = !canActBase;
+
       byId('rollBtn').textContent = crisis ? 'Crisis Roll' : 'Roll';
-      byId('rollBtn').disabled = !meTurn || (crisis ? false : (rolled || (pending && pending.uid===uid) || !!stealOffer));
-      byId('endTurnBtn').disabled = !meTurn || (crisis ? true : (!rolled || (pending && pending.uid===uid) || !!stealOffer));
+      byId('rollBtn').disabled = !meTurn || (crisis ? false : (rolled || pending || hasChoice || hasSkip));
 
-      // Steal controls visible only during my Steal Offer window
-      byId('stealBtn').style.display = (meTurn && stealOffer) ? 'inline-block' : 'none';
-      byId('moveBtn').style.display  = (meTurn && stealOffer) ? 'inline-block' : 'none';
-      byId('stealBtn').disabled = !meTurn || !stealOffer;
-      byId('moveBtn').disabled  = !meTurn || !stealOffer;
-
-      // Path choice panel
-      const cp = byId('choicePanel');
-      const pc = roomSnap.pendingChoice;
-      cp.style.display = (pc && meTurn && pc.uid===uid) ? 'block' : 'none';
+      byId('endTurnBtn').disabled = !meTurn || (crisis ? true : (!rolled || pending || hasChoice));
     }
     function renderFinish(){
       const box = byId('finalScores');
@@ -592,7 +589,6 @@
       updates['pendingDraw'] = null;
       updates['pendingChoice'] = null;
       updates['pendingCrisis'] = null;
-      updates['stealOffer'] = null;
       updates['turn'] = { rolled: false };
       updates['popup'] = null;
       updates['log'] = (roomSnap.log||[]).concat({ts:Date.now(), msg:'Game started!'});
@@ -618,7 +614,7 @@
       await db.ref(`rooms/${curRoom}/tiles/${n}`).update({ imgUrl: '' });
     });
 
-    // ===== Gameplay =====
+    // ===== Gameplay: ROLL =====
     byId('rollBtn').addEventListener('click', async ()=>{
       if(roomSnap.state!=='playing') return;
       const order=roomSnap.turnOrder||[]; const turnUid=order[roomSnap.currentTurnIndex||0];
@@ -639,9 +635,6 @@
         return;
       }
 
-      // Normal roll path — block if pending draw or already rolled or steal offer pending
-      if((roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) || (roomSnap.turn && roomSnap.turn.rolled) || roomSnap.stealOffer) return;
-
       // if skipping (STOP effect), auto end turn
       const me = roomSnap.players?.[uid]; if((me?.skip||0)>0){
         await db.ref(`rooms/${curRoom}/players/${uid}`).update({ skip:(me.skip-1) });
@@ -649,6 +642,11 @@
         await nextTurn();
         return;
       }
+
+      // block if pending draw/choice or already rolled
+      if((roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) ||
+         (roomSnap.pendingChoice && roomSnap.pendingChoice.uid===uid) ||
+         (roomSnap.turn && roomSnap.turn.rolled)) return;
 
       // lock roll
       await db.ref(`rooms/${curRoom}/turn`).set({ rolled: true });
@@ -661,14 +659,6 @@
         renderDie(roll);
         await db.ref(`rooms/${curRoom}`).update({ dice: roll });
 
-        // If roll is 5 or 6 → offer steal instead of moving
-        if(roll===5 || roll===6){
-          await db.ref('rooms/'+curRoom+'/stealOffer').set({ uid, roll });
-          await logMsg(`${me.name} rolled a ${roll}: can attempt a Steal or Move Normally.`);
-          return; // wait for player's choice
-        }
-
-        // Otherwise move immediately
         const meNow = roomSnap.players?.[uid];
         const newPos = Math.min(BOARD_LEN, (meNow.pos||1)+roll);
         await db.ref(`rooms/${curRoom}/players/${uid}`).update({ pos: newPos });
@@ -676,29 +666,20 @@
       }, 300);
     });
 
-    // Move Normally after a Steal Offer
-    byId('moveBtn').addEventListener('click', async ()=>{
-      const order=roomSnap.turnOrder||[]; const turnUid=order[roomSnap.currentTurnIndex||0];
-      if(turnUid!==uid) return;
-      const offer = roomSnap.stealOffer;
-      if(!offer || offer.uid!==uid) return;
-
-      const meNow = roomSnap.players?.[uid];
-      const roll = roomSnap.dice || 0;
-      const newPos = Math.min(BOARD_LEN, (meNow.pos||1)+roll);
-      await db.ref(`rooms/${curRoom}/players/${uid}`).update({ pos: newPos });
-      await db.ref(`rooms/${curRoom}`).update({ stealOffer: null });
-      await processTile(newPos);
-    });
-
-    // Attempt Steal
+    // ===== Gameplay: STEAL (pre-roll) =====
     byId('stealBtn').addEventListener('click', async ()=>{
       const order=roomSnap.turnOrder||[]; const turnUid=order[roomSnap.currentTurnIndex||0];
       if(turnUid!==uid) return;
-      const offer = roomSnap.stealOffer;
-      if(!offer || offer.uid!==uid) return;
+      // Can only steal at start of turn: must not have rolled, no pending, no crisis, no skip
+      const me = roomSnap.players?.[uid];
+      const blocked = (roomSnap.turn?.rolled) ||
+                      (roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) ||
+                      (roomSnap.pendingChoice && roomSnap.pendingChoice.uid===uid) ||
+                      (roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid) ||
+                      ((me?.skip||0)>0);
+      if(blocked) return;
 
-      // populate target list (exclude me)
+      // Populate target list (exclude me)
       stealTarget.innerHTML='';
       Object.entries(roomSnap.players||{}).forEach(([pid,p])=>{
         if(pid===uid) return;
@@ -715,7 +696,10 @@
       if(!targetUid) return;
       stealPopup.classList.remove('show');
 
-      // Do the steal roll
+      // mark turn consumed (prevents rolling afterwards)
+      await db.ref(`rooms/${curRoom}/turn`).set({ rolled: true });
+
+      // Do the steal roll (success on 5–6)
       diceEl.classList.add('roll');
       const sRoll = 1 + Math.floor(Math.random()*6);
       setTimeout(async ()=>{
@@ -725,7 +709,7 @@
         const me = roomSnap.players[uid];
         const target = roomSnap.players[targetUid];
 
-        if(sRoll===5 || sRoll===6){
+        if(sRoll>=5){
           // success: steal 100 from target, +1 trauma to target
           const stealAmt = 100;
           await addHpTo(targetUid, -stealAmt);
@@ -742,9 +726,7 @@
           await showPopupForAll({ kind:'event', title:'Steal Failed', description:`${me.name} failed the steal and loses 50 HP and gains +1 Trauma Token.`, player:`Steal Event` });
           await logMsg(`${me.name} fails the steal: -50 HP and +1 Trauma Token.`);
         }
-
-        // Consume the turn (no movement) and clear offer
-        await db.ref('rooms/'+curRoom).update({ stealOffer: null });
+        // After attempt, player can press End Turn (no movement this turn).
       }, 300);
     });
 
@@ -752,11 +734,10 @@
       if(roomSnap.state!=='playing') return;
       const order=roomSnap.turnOrder||[];
       if(order[roomSnap.currentTurnIndex||0]!==uid) return;
-      // cannot end if pending draw, choice, crisis, or steal offer unresolved
+      // cannot end if pending draw, choice, or crisis
       if((roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) ||
          (roomSnap.pendingChoice && roomSnap.pendingChoice.uid===uid) ||
-         (roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid) ||
-         (roomSnap.stealOffer && roomSnap.stealOffer.uid===uid)) return;
+         (roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid)) return;
       await nextTurn();
     });
 
@@ -808,8 +789,7 @@
         turn: { rolled: false },
         pendingDraw: null,
         pendingChoice: null,
-        pendingCrisis: null,
-        stealOffer: null
+        pendingCrisis: null
       });
     }
 
@@ -1053,7 +1033,6 @@
           pendingDraw: null,
           pendingChoice: null,
           pendingCrisis: null,
-          stealOffer: null,
           turn: { rolled: false },
           popup: null,
           log: [ {ts: Date.now(), msg: `${name} created room ${code}`} ]
