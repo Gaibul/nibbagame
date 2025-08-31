@@ -1,872 +1,816 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Life Game Maker — Multiplayer (Firebase)</title>
-  <style>
-    :root { --bg:#0f1222; --panel:#171b34; --muted:#8ea1b1; --text:#e8ecf1; --accent:#7bd389; --accent2:#6fa8ff; --danger:#ff6b6b; }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-    a { color: var(--accent2); text-decoration: none; }
-    a:hover{ text-decoration: underline; }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Life Game — Core Rules (Firebase)</title>
+<style>
+  :root { --bg:#0f1222; --panel:#171b34; --muted:#8ea1b1; --text:#e8ecf1; --accent:#7bd389; --accent2:#6fa8ff; --danger:#ff6b6b; }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
 
-    header { position: sticky; top: 0; z-index: 5; background: linear-gradient(180deg, rgba(15,18,34,.98), rgba(15,18,34,.80)); border-bottom: 1px solid #222846; }
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px 18px; }
-    h1 { margin: 0; font-size: 20px; display:flex; align-items:center; gap:10px; }
-    .badge { font-size:12px; background:#243050; color:#b9c6d3; padding:3px 8px; border-radius:999px; border:1px solid #313d61; }
+  header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,rgba(15,18,34,.98),rgba(15,18,34,.80));border-bottom:1px solid #222846}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px 18px}
+  h1{margin:0;font-size:20px;display:flex;align-items:center;gap:10px}
+  .badge{font-size:12px;background:#243050;color:#b9c6d3;padding:3px 8px;border-radius:999px;border:1px solid #313d61}
+  nav{display:flex;gap:10px;margin-top:12px}
+  .tab{background:#141938;border:1px solid #21274a;color:#d7deea;padding:8px 12px;border-radius:10px;cursor:pointer}
+  .tab[aria-selected="true"]{background:#1b2144;border-color:#2b355f;box-shadow:inset 0 0 0 1px #2c3b6b}
 
-    nav { display:flex; gap:10px; margin-top:12px; }
-    .tab { background: #141938; border:1px solid #21274a; color:#d7deea; padding:8px 12px; border-radius:10px; cursor:pointer; }
-    .tab[aria-selected="true"] { background: #1b2144; border-color:#2b355f; box-shadow: inset 0 0 0 1px #2c3b6b; }
+  main{max-width:1100px;margin:0 auto;padding:18px;display:grid;gap:24px}
+  .panel{background:var(--panel);border:1px solid #22284a;border-radius:16px;padding:16px}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .col{display:grid;gap:10px}
+  label{font-size:12px;color:var(--muted)}
+  input[type="text"],input[type="number"],select,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #2a3358;background:#0f1430;color:#e8ecf1}
+  textarea{min-height:72px;resize:vertical}
+  button{padding:10px 12px;border-radius:10px;border:1px solid #2b375e;background:#1c2448;color:#e8ecf1;cursor:pointer}
+  button.primary{background:linear-gradient(180deg,#2d6df7,#1a4ed8);border-color:#356af1}
+  button.ghost{background:transparent;border-color:#2b375e}
+  button.danger{background:linear-gradient(180deg,#e15b5b,#cc4040);border-color:#e15b5b}
 
-    main { max-width: 1100px; margin: 0 auto; padding: 18px; display:grid; gap:24px; }
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  @media (max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
 
-    .panel { background: var(--panel); border:1px solid #22284a; border-radius:16px; padding:16px; }
-    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-    .col { display:grid; gap:10px; }
-    label { font-size:12px; color: var(--muted); }
-    input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border:1px solid #2a3358; background:#0f1430; color:#e8ecf1; }
-    textarea { min-height: 72px; resize: vertical; }
-    button { padding: 10px 12px; border-radius: 10px; border: 1px solid #2b375e; background:#1c2448; color:#e8ecf1; cursor: pointer; }
-    button.primary { background: linear-gradient(180deg, #2d6df7, #1a4ed8); border-color:#356af1; }
-    button.ghost { background:transparent; border-color:#2b375e; }
-    button.danger { background: linear-gradient(180deg, #e15b5b, #cc4040); border-color:#e15b5b; }
+  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+  .tile-card{background:#111633;border:1px solid #242f59;border-radius:14px;padding:12px;display:grid;gap:8px;position:relative}
+  .tile-head{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .tile-idx{font-weight:600;color:#a6b6c9}
+  .tile-actions{display:flex;gap:6px}
 
-    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
-    .grid3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px; }
-    .grid4 { display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; }
-    @media (max-width: 900px){ .grid2, .grid3, .grid4 { grid-template-columns: 1fr; } }
+  .board{--gap:6px;display:grid;grid-auto-flow:column;grid-auto-columns:80px;gap:var(--gap);background:#0b1030;padding:10px;border-radius:14px;overflow:auto;border:1px solid #26305c}
+  .board .space{width:80px;height:80px;border-radius:10px;border:1px solid #2a3563;background:#121842;display:grid;place-items:center;position:relative}
+  .board .space .label{font-size:11px;color:#c5d2e3;text-align:center;padding:4px}
+  .token{position:absolute;bottom:4px;right:4px;width:26px;height:26px;border-radius:999px;border:2px solid rgba(255,255,255,.8);background:#9aa7ff;background-size:cover;background-position:center}
+  .token.stack2{right:32px}
+  .token.stack3{right:60px}
 
-    .tiles { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:12px; }
-    .tile-card { background:#111633; border:1px solid #242f59; border-radius:14px; padding:12px; display:grid; gap:8px; position:relative; }
-    .tile-head { display:flex; align-items:center; gap:8px; justify-content:space-between; }
-    .tile-idx { font-weight:600; color:#a6b6c9; }
-    .tile-actions { display:flex; gap:6px; }
+  .players{display:flex;flex-wrap:wrap;gap:8px}
+  .pill{background:#10163a;border:1px solid #253062;padding:6px 10px;border-radius:999px;display:flex;align-items:center;gap:8px}
+  .dot{width:10px;height:10px;border-radius:999px}
+  .avatar{width:20px;height:20px;border-radius:50%;background:#334;background-size:cover;background-position:center;border:1px solid rgba(255,255,255,.6)}
 
-    .board-wrap { display:grid; gap:10px; }
-    .board { --gap:6px; display:grid; grid-auto-flow: column; grid-auto-columns: 80px; gap:var(--gap); background:#0b1030; padding:10px; border-radius:14px; overflow:auto; border:1px solid #26305c; }
-    .board .space { width:80px; height:80px; border-radius:10px; border:1px solid #2a3563; background:#121842; display:grid; place-items:center; position:relative; }
-    .board .space .label { font-size:11px; color:#c5d2e3; text-align:center; padding:4px; }
-    .board .token { position:absolute; bottom:4px; right:4px; width:26px; height:26px; border-radius:999px; border:2px solid rgba(255,255,255,.8); background:#9aa7ff; background-size:cover; background-position:center; }
-    .board .token.stack2 { right:32px; }
-    .board .token.stack3 { right:60px; }
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#0f1432;border:1px solid #2a3563;padding:10px 14px;border-radius:10px;display:none}
+  .muted{color:#9fb1c7}
+  .right{margin-left:auto}
 
-    .players { display:flex; flex-wrap:wrap; gap:8px; }
-    .pill { background:#10163a; border:1px solid #253062; padding:6px 10px; border-radius:999px; display:flex; align-items:center; gap:8px; }
-    .dot { width:10px; height:10px; border-radius:999px; }
-    .avatar { width:20px; height:20px; border-radius:50%; background:#334; background-size:cover; background-position:center; border:1px solid rgba(255,255,255,.6); }
+  /* FULL SCREEN ROOM */
+  .roombar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #22284a;background:#0e1330;position:sticky;top:0;z-index:10}
+  .roomgrid{display:grid;grid-template-columns:1fr 330px;gap:12px;height:calc(100vh - 56px);padding:12px}
+  .board.big{grid-auto-columns:110px;height:100%;border-radius:18px}
+  .side{display:grid;grid-template-rows:auto auto 1fr;gap:10px}
+  .bigdice{font-size:22px;padding:14px 18px;border-radius:14px}
+  .feed{background:#0f1432;border:1px solid #2a3563;border-radius:12px;padding:10px;overflow:auto}
+  .deckbar button{width:100%}
 
-    .toast { position: fixed; left:50%; transform:translateX(-50%); bottom: 18px; background:#0f1432; border:1px solid #2a3563; padding:10px 14px; border-radius:10px; display:none; }
-    .help { color:#b9c6d3; font-size:12px; }
-    .muted { color:#9fb1c7; }
-    .right { margin-left:auto; }
-
-    .list { display:grid; gap:10px; }
-    .card { background:#111633; border:1px solid #24305a; border-radius:14px; padding:12px; display:flex; align-items:center; gap:10px; }
-
-    /* ===== Full-screen Play View ===== */
-    .roombar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #22284a;background:#0e1330;position:sticky;top:0;z-index:10}
-    .roomgrid{display:grid;grid-template-columns:1fr 330px;gap:12px;height:calc(100vh - 56px);padding:12px}
-    .board.big{grid-auto-columns:110px;height:100%;border-radius:18px}
-    .side{display:grid;grid-template-rows:auto auto 1fr;gap:10px}
-    .bigdice{font-size:22px;padding:14px 18px;border-radius:14px}
-    .feed{background:#0f1432;border:1px solid #2a3563;border-radius:12px;padding:10px;overflow:auto}
-    .deckbar button{width:100%}
-
-    /* --- Auto-fit full-screen board (no scroll, multi-row) --- */
-    .board.fit{
-      --gap:8px;
-      display:grid;
-      grid-auto-flow: row;
-      gap: var(--gap);
-      overflow:hidden;
-    }
-    .board.fit .space{
-      width:100%;
-      height:100%;
-      border-radius:12px;
-    }
-  </style>
+  /* Auto-fit full-screen board */
+  .board.fit{--gap:8px;display:grid;grid-auto-flow:row;gap:var(--gap);overflow:hidden}
+  .board.fit .space{width:100%;height:100%;border-radius:12px}
+</style>
 </head>
 <body>
-  <header>
-    <div class="wrap">
-      <h1>Life Game Maker <span class="badge">Multiplayer • Firebase</span></h1>
-      <nav>
-        <button class="tab" data-tab="maker" aria-selected="true">Maker</button>
-        <button class="tab" data-tab="library">Library</button>
-        <button class="tab" data-tab="play">Play</button>
-      </nav>
+<header>
+  <div class="wrap">
+    <h1>Life Game <span class="badge">Multiplayer • Firebase • HP & Trauma</span></h1>
+    <nav>
+      <button class="tab" data-tab="maker" aria-selected="true">Maker</button>
+      <button class="tab" data-tab="library">Library</button>
+      <button class="tab" data-tab="play">Play</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- MAKER -->
+  <section id="maker" class="panel" role="tabpanel">
+    <div class="grid3">
+      <div class="col">
+        <label>Game Title</label>
+        <input id="mk_title" type="text" placeholder="e.g., Birthday Life: Aadarsh Edition"/>
+      </div>
+      <div class="col">
+        <label>Tiles (track length)</label>
+        <input id="mk_tilesCount" type="number" min="10" max="200" value="40"/>
+      </div>
+      <div class="col">
+        <label>Game ID (auto on save)</label>
+        <input id="mk_gameId" type="text" placeholder="(auto)" readonly/>
+      </div>
     </div>
-  </header>
 
-  <main class="wrap">
-    <!-- MAKER -->
-    <section id="maker" class="panel" role="tabpanel">
-      <div class="grid3">
+    <div class="row" style="margin-top:10px">
+      <button id="mk_new" class="ghost">New</button>
+      <button id="mk_add10">+10 Tiles</button>
+      <button id="mk_fill" title="Load Core Rules">Load Core Rules</button>
+      <span class="right"></span>
+      <button id="mk_save" class="primary">Save Game</button>
+    </div>
+
+    <p class="muted">HP = Hustle Points. Trauma Tokens cause burnout at 5+ (skip next turn). “Family” deck in addition to Action/Life/Career.</p>
+
+    <div id="mk_tiles" class="tiles"></div>
+
+    <div class="panel" style="margin-top:14px">
+      <strong>Decks (simple line format)</strong>
+      <div class="grid3" style="margin-top:8px">
         <div class="col">
-          <label>Game Title</label>
-          <input id="mk_title" type="text" placeholder="e.g., Birthday Life: Aadarsh Edition" />
+          <label>Career — one per line: <span class="muted">Title|SalaryHP</span></label>
+          <textarea id="mk_deck_career"></textarea>
         </div>
         <div class="col">
-          <label>Tiles (track length)</label>
-          <input id="mk_tilesCount" type="number" min="10" max="200" value="40" />
+          <label>Action — one per line: <span class="muted">Title|HP|Jump</span></label>
+          <textarea id="mk_deck_action"></textarea>
         </div>
         <div class="col">
-          <label>Game ID (auto on save)</label>
-          <input id="mk_gameId" type="text" placeholder="(auto)" readonly />
+          <label>Life — one per line: <span class="muted">Title|HP|Trauma</span></label>
+          <textarea id="mk_deck_life"></textarea>
         </div>
       </div>
-
-      <div class="row" style="margin-top:10px">
-        <button id="mk_new" class="ghost">New</button>
-        <button id="mk_add10">+10 Tiles</button>
-        <button id="mk_fill" title="Fill with sample tiles">Fill Samples</button>
-        <span class="right"></span>
-        <button id="mk_save" class="primary">Save Game</button>
-      </div>
-
-      <p class="help">Each tile can change money, move the player, or trigger Life-style actions (Stop, Draw Card, Payday, Family, Career, Finish). Paste image URLs (Drive links supported). Reorder tiles by editing the index #.</p>
-
-      <div id="mk_tiles" class="tiles"></div>
-
-      <div class="panel" style="margin-top:14px">
-        <strong>Decks (simple line format)</strong>
-        <div class="grid3" style="margin-top:8px">
-          <div class="col">
-            <label>Career — one per line: <span class="muted">Title|Salary</span></label>
-            <textarea id="mk_deck_career"></textarea>
-          </div>
-          <div class="col">
-            <label>Action — one per line: <span class="muted">Title|Money|Jump</span></label>
-            <textarea id="mk_deck_action"></textarea>
-          </div>
-          <div class="col">
-            <label>Life — one per line: <span class="muted">Title|Money</span></label>
-            <textarea id="mk_deck_life"></textarea>
-          </div>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <button id="mk_applyDecks" class="ghost">Apply Deck Text</button>
+      <div class="grid3" style="margin-top:8px">
+        <div class="col">
+          <label>Family — one per line: <span class="muted">Title|HP|KidsΔ|Trauma</span></label>
+          <textarea id="mk_deck_family"></textarea>
         </div>
       </div>
+      <div class="row" style="margin-top:8px">
+        <button id="mk_applyDecks" class="ghost">Apply Deck Text</button>
+      </div>
+    </div>
 
-      <div class="panel" style="margin-top:14px">
+    <div class="panel" style="margin-top:14px">
+      <div class="row"><strong>Live Preview</strong><span class="muted">(scroll sideways)</span></div>
+      <div id="mk_boardPreview" class="board"></div>
+    </div>
+  </section>
+
+  <!-- LIBRARY -->
+  <section id="library" class="panel" role="tabpanel" hidden>
+    <div class="row" style="margin-bottom:8px;">
+      <strong>My Saved Games</strong>
+      <span class="right muted" id="lb_user"></span>
+    </div>
+    <div id="lb_list" class="list"></div>
+  </section>
+
+  <!-- PLAY (lobby) -->
+  <section id="play" class="panel" role="tabpanel" hidden>
+    <div class="grid2">
+      <div class="panel">
+        <div class="col">
+          <strong>Create Room</strong>
+          <label>From Game</label>
+          <select id="pl_gameSelect"></select>
+          <label>Room Name</label>
+          <input id="pl_roomName" type="text" placeholder="e.g., Aadarsh-bday-room"/>
+          <button id="pl_create" class="primary">Create Room</button>
+        </div>
+        <hr style="border:none;border-top:1px solid #29335e;margin:14px 0;"/>
+        <div class="col">
+          <strong>Join Room</strong>
+          <label>Room ID</label>
+          <input id="pl_roomId" type="text" placeholder="Enter a roomId"/>
+          <label>Your Display Name</label>
+          <input id="pl_name" type="text" placeholder="e.g., Player-01"/>
+          <label>Avatar (PNG) — or paste an image URL below</label>
+          <input id="pl_avatar" type="file" accept="image/png,image/jpeg,image/webp"/>
+          <label>Avatar URL (optional)</label>
+          <input id="pl_avatarUrl" type="text" placeholder="https://... or Google Drive link"/>
+          <label>Token Color</label>
+          <input id="pl_color" type="color" value="#6fa8ff"/>
+          <div class="row">
+            <button id="pl_join" class="primary">Join Room</button>
+            <button id="pl_leave" class="ghost">Leave Room</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <div>
+            <strong>Room:</strong> <span id="room_info">—</span>
+            <div class="muted" id="game_info">—</div>
+          </div>
+          <div class="row">
+            <button id="host_start" class="primary">Start</button>
+            <button id="host_reset" class="ghost">Reset</button>
+          </div>
+        </div>
+
+        <div class="players" id="pl_players" style="margin:10px 0 6px"></div>
+
         <div class="board-wrap">
-          <div class="row"><strong>Live Preview</strong><span class="muted">(scroll sideways)</span></div>
-          <div id="mk_boardPreview" class="board"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- LIBRARY -->
-    <section id="library" class="panel" role="tabpanel" hidden>
-      <div class="row" style="margin-bottom:8px;">
-        <strong>My Saved Games</strong>
-        <span class="right muted" id="lb_user"></span>
-      </div>
-      <div id="lb_list" class="list"></div>
-    </section>
-
-    <!-- PLAY (lobby view) -->
-    <section id="play" class="panel" role="tabpanel" hidden>
-      <div class="grid2">
-        <div class="panel">
-          <div class="col">
-            <strong>Create Room</strong>
-            <label>From Game</label>
-            <select id="pl_gameSelect"></select>
-            <label>Room Name</label>
-            <input id="pl_roomName" type="text" placeholder="e.g., Aadarsh-bday-room" />
-            <button id="pl_create" class="primary">Create Room</button>
+          <div class="row" style="align-items:center; gap:12px;">
+            <button id="pl_roll" class="primary">🎲 Roll</button>
+            <div>Dice: <strong id="pl_dice">—</strong></div>
+            <div>Turn: <span id="pl_turn">—</span></div>
           </div>
-          <hr style="border:none;border-top:1px solid #29335e;margin:14px 0;"/>
-          <div class="col">
-            <strong>Join Room</strong>
-            <label>Room ID</label>
-            <input id="pl_roomId" type="text" placeholder="Enter a roomId" />
-            <label>Your Display Name</label>
-            <input id="pl_name" type="text" placeholder="e.g., Gaibul" />
-            <label>Avatar (PNG) — or paste an image URL below</label>
-            <input id="pl_avatar" type="file" accept="image/png,image/jpeg,image/webp" />
-            <label>Avatar URL (optional)</label>
-            <input id="pl_avatarUrl" type="text" placeholder="https://... or Google Drive link" />
-            <label>Token Color</label>
-            <input id="pl_color" type="color" value="#6fa8ff" />
-            <div class="row">
-              <button id="pl_join" class="primary">Join Room</button>
-              <button id="pl_leave" class="ghost">Leave Room</button>
-            </div>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="row" style="justify-content:space-between;align-items:center;">
-            <div>
-              <strong>Room:</strong> <span id="room_info">—</span>
-              <div class="muted" id="game_info">—</div>
-            </div>
-            <div class="row">
-              <button id="host_start" class="primary">Start</button>
-              <button id="host_reset" class="ghost">Reset</button>
-            </div>
-          </div>
-
-          <div class="players" id="pl_players" style="margin:10px 0 6px"></div>
-
-          <div class="board-wrap">
-            <div class="row" style="align-items:center; gap:12px;">
-              <button id="pl_roll" class="primary">🎲 Roll</button>
-              <div>Dice: <strong id="pl_dice">—</strong></div>
-              <div>Turn: <span id="pl_turn">—</span></div>
-            </div>
-            <div id="pl_board" class="board" style="height:260px"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- FULL-SCREEN ROOM VIEW -->
-  <section id="room_full" hidden>
-    <div class="roombar">
-      <div>
-        <strong>Room:</strong> <span id="rf_room">—</span>
-        <div class="muted" id="rf_game">—</div>
-      </div>
-      <div class="row">
-        <button id="rf_exit" class="ghost">Exit</button>
-      </div>
-    </div>
-    <div class="roomgrid">
-      <div id="rf_board" class="board big"></div>
-      <div class="side">
-        <div id="rf_players" class="players"></div>
-        <div class="row" style="gap:10px;align-items:center;">
-          <button id="rf_roll" class="primary bigdice">🎲 Roll</button>
-          <div>Dice: <strong id="rf_dice">—</strong></div>
-          <div>Turn: <span id="rf_turn">—</span></div>
-        </div>
-        <div class="feed">
-          <div class="row deckbar" style="gap:8px; margin-bottom:8px;">
-            <button id="rf_draw_action">Draw Action</button>
-            <button id="rf_draw_life">Draw Life</button>
-            <button id="rf_choose_career">Choose Career</button>
-          </div>
-          <div class="muted" id="rf_deck_counts">—</div>
-          <div style="margin-top:8px"><strong>Last card:</strong> <span id="rf_lastcard">—</span></div>
+          <div id="pl_board" class="board" style="height:260px"></div>
         </div>
       </div>
     </div>
   </section>
+</main>
 
-  <div class="toast" id="toast"></div>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getDatabase, ref as dbRef, set, update, onValue, get, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
-      authDomain: "nomercy-8269a.firebaseapp.com",
-      databaseURL: "https://nomercy-8269a-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "nomercy-8269a",
-      storageBucket: "nomercy-8269a.firebasestorage.app",
-      messagingSenderId: "349047620790",
-      appId: "1:349047620790:web:3206ff81cb7f5413d29217",
-      measurementId: "G-1WX7CWBFGF"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    try { getAnalytics(app); } catch(e) {}
-    const auth = getAuth(app);
-    const db = getDatabase(app);
-    const storage = getStorage(app);
-
-    const $ = sel => document.querySelector(sel);
-    const $$ = sel => Array.from(document.querySelectorAll(sel));
-    const toast = (msg, ms=1800) => { const n=$('#toast'); n.textContent=msg; n.style.display='block'; setTimeout(()=>n.style.display='none', ms); };
-    const randId = (len=6)=> Math.random().toString(36).slice(2,2+len);
-    const directDriveUrl = (url) => {
-      if(!url) return '';
-      try{
-        const u = new URL(url);
-        if(u.hostname.includes('drive.google.com')){
-          const parts = u.pathname.split('/');
-          let id = '';
-          const i = parts.indexOf('d');
-          if(i>=0 && parts[i+1]) id = parts[i+1];
-          if(!id) id = u.searchParams.get('id') || '';
-          if(id) return `https://drive.google.com/uc?export=download&id=${id}`;
-        }
-      }catch(e){}
-      return url;
-    };
-
-    // ===== Auth (anonymous) — with readiness guard
-    let myUid = null;
-    let _resolveAuth; const authReady = new Promise(res => (_resolveAuth = res));
-    signInAnonymously(auth).catch(console.warn);
-    onAuthStateChanged(auth, (user)=>{
-      if(user){
-        myUid = user.uid;
-        _resolveAuth?.();
-        $('#lb_user') && ($('#lb_user').textContent = `Signed in as ${myUid.slice(0,6)}… (anon)`);
-        loadMyGames();
-        refreshGameSelect();
-        renderMaker();
-      }
-    });
-
-    // ===== Maker state
-    let mk_state = {
-      gameId:'', title:'', tilesCount:40, tiles:[],
-      decks:{
-        career:[{title:'Engineer', salary:40},{title:'Designer', salary:35},{title:'Teacher', salary:30}],
-        action:[{title:'Win a contest', money:20, jump:0},{title:'Pay a fine', money:-15, jump:0}],
-        life:[{title:'Good deed bonus', money:10},{title:'Unexpected expense', money:-10}]
-      }
-    };
-
-    const renderMaker = () => {
-      if(!$('#mk_title')) return;
-      $('#mk_title').value = mk_state.title || '';
-      $('#mk_tilesCount').value = mk_state.tilesCount;
-      $('#mk_gameId').value = mk_state.gameId || '';
-
-      while(mk_state.tiles.length < mk_state.tilesCount){
-        mk_state.tiles.push({ idx: mk_state.tiles.length, label:`Tile ${mk_state.tiles.length+1}`, desc:'', money:0, action:'none', actionValue:0, actionDeck:'action', color:'#121842', imageUrl:'' });
-      }
-      if(mk_state.tiles.length > mk_state.tilesCount){ mk_state.tiles.length = mk_state.tilesCount; }
-
-      if($('#mk_deck_career')) $('#mk_deck_career').value = (mk_state.decks.career||[]).map(c=>`${c.title}|${c.salary}`).join('\n');
-      if($('#mk_deck_action')) $('#mk_deck_action').value = (mk_state.decks.action||[]).map(c=>`${c.title}|${c.money||0}|${c.jump||0}`).join('\n');
-      if($('#mk_deck_life'))   $('#mk_deck_life').value   = (mk_state.decks.life||[]).map(c=>`${c.title}|${c.money||0}`).join('\n');
-
-      const root = $('#mk_tiles');
-      root.innerHTML = '';
-      mk_state.tiles.forEach((t, i)=>{
-        const card = document.createElement('div');
-        card.className = 'tile-card';
-        card.innerHTML = `
-          <div class="tile-head">
-            <div class="tile-idx">#<input data-k="idx" type="number" min="0" style="width:64px" value="${i}"/></div>
-            <div class="tile-actions">
-              <button data-act="dup">Duplicate</button>
-              <button data-act="del" class="danger">Delete</button>
-            </div>
-          </div>
-          <div class="grid2">
-            <div class="col">
-              <label>Label</label>
-              <input data-k="label" type="text" value="${t.label||''}" />
-            </div>
-            <div class="col">
-              <label>Color</label>
-              <input data-k="color" type="color" value="${t.color||'#121842'}" />
-            </div>
-          </div>
-          <div class="col">
-            <label>Description</label>
-            <textarea data-k="desc">${t.desc||''}</textarea>
-          </div>
-          <div class="grid3">
-            <div class="col">
-              <label>Money Δ (can be negative)</label>
-              <input data-k="money" type="number" value="${t.money||0}" />
-            </div>
-            <div class="col">
-              <label>Action</label>
-              <select data-k="action">
-                <option value="none" ${t.action==='none'?'selected':''}>None</option>
-                <option value="jump" ${t.action==='jump'?'selected':''}>Jump (± steps)</option>
-                <option value="goto" ${t.action==='goto'?'selected':''}>Go to tile #</option>
-                <option value="stop" ${t.action==='stop'?'selected':''}>Stop</option>
-                <option value="payday" ${t.action==='payday'?'selected':''}>Payday</option>
-                <option value="family" ${t.action==='family'?'selected':''}>Family (+kids)</option>
-                <option value="draw" ${t.action==='draw'?'selected':''}>Draw Card</option>
-                <option value="career" ${t.action==='career'?'selected':''}>Choose Career</option>
-                <option value="finish" ${t.action==='finish'?'selected':''}>Finish</option>
-              </select>
-            </div>
-            <div class="col">
-              <label>Action Value</label>
-              <input data-k="actionValue" type="number" value="${t.actionValue||0}" />
-            </div>
-          </div>
-          <div class="grid2">
-            <div class="col">
-              <label>Tile Image URL (optional)</label>
-              <input data-k="imageUrl" type="text" placeholder="https://... or Google Drive link" value="${t.imageUrl||''}" />
-            </div>
-            <div class="col">
-              <label>Deck (for Draw/Career)</label>
-              <select data-k="actionDeck">
-                <option value="action" ${t.actionDeck==='action'?'selected':''}>Action</option>
-                <option value="life" ${t.actionDeck==='life'?'selected':''}>Life</option>
-                <option value="career" ${t.actionDeck==='career'?'selected':''}>Career</option>
-              </select>
-            </div>
-          </div>
-        `;
-        card.querySelectorAll('[data-k]').forEach(el=>{
-          el.addEventListener('change', ()=>{
-            const k = el.dataset.k; let v = el.value;
-            if(k==='money' || k==='actionValue' || k==='idx') v = Number(v);
-            if(k==='imageUrl') v = directDriveUrl(v);
-            mk_state.tiles[i][k] = v;
-            if(k==='idx'){
-              const to = Math.max(0, Math.min(mk_state.tiles.length-1, v|0));
-              if(to!==i){
-                const [itm] = mk_state.tiles.splice(i,1);
-                mk_state.tiles.splice(to,0,itm);
-                renderMaker();
-              }
-            }
-            renderPreview();
-          });
-        });
-        card.querySelector('[data-act="dup"]').addEventListener('click', ()=>{
-          const copy = JSON.parse(JSON.stringify(mk_state.tiles[i]));
-          mk_state.tiles.splice(i+1,0,copy);
-          mk_state.tilesCount = mk_state.tiles.length;
-          renderMaker();
-          renderPreview();
-        });
-        card.querySelector('[data-act="del"]').addEventListener('click', ()=>{
-          mk_state.tiles.splice(i,1);
-          mk_state.tilesCount = mk_state.tiles.length;
-          renderMaker();
-          renderPreview();
-        });
-        root.appendChild(card);
-      });
-
-      renderPreview();
-    };
-
-    const renderPreview = () => {
-      const b = $('#mk_boardPreview');
-      b.innerHTML = '';
-      mk_state.tiles.forEach((t, i)=>{
-        const s = document.createElement('div'); s.className='space'; s.style.background = t.color||'#121842';
-        if(t.imageUrl){ s.style.backgroundImage = `url(${t.imageUrl})`; s.style.backgroundSize='cover'; s.style.backgroundPosition='center'; s.style.opacity=0.9; }
-        const lab = document.createElement('div'); lab.className='label';
-        let extra = '';
-        if(t.action==='payday') extra = ' 💰';
-        if(t.action==='draw' || t.action==='career') extra = ` 🃏(${t.actionDeck||'action'})`;
-        if(t.action==='family') extra = ` 👶x${t.actionValue||1}`;
-        if(t.action==='finish') extra = ' 🏁';
-        lab.textContent = (t.label||`Tile ${i+1}`)+extra; s.appendChild(lab);
-        b.appendChild(s);
-      });
-    };
-
-    // Maker buttons
-    $('#mk_new').addEventListener('click', ()=>{ mk_state = { gameId:'', title:'', tilesCount:40, tiles:[], decks: mk_state.decks }; renderMaker(); toast('New game started'); });
-    $('#mk_add10').addEventListener('click', ()=>{ mk_state.tilesCount = Math.min(200, mk_state.tilesCount + 10); renderMaker(); });
-    $('#mk_fill').addEventListener('click', ()=>{
-      const fillers = [
-        { label:'Start', desc:'Begin your journey!', money:50, action:'none', actionValue:0, color:'#243a6b' },
-        { label:'Payday', desc:'Collect salary', money:0, action:'payday', actionValue:0, color:'#305035' },
-        { label:'Draw Card', desc:'Action card', money:0, action:'draw', actionValue:0, color:'#2b4b4e' },
-        { label:'Go Back', desc:'Back 1.', money:0, action:'jump', actionValue:-1, color:'#4a2b2b' },
-        { label:'Finish', desc:'End the game', money:0, action:'finish', actionValue:0, color:'#3b2a5f' },
-      ];
-      for(let i=0;i<mk_state.tilesCount;i++){
-        const f = fillers[i%fillers.length];
-        mk_state.tiles[i] = { idx:i, label:f.label+` ${i+1}`, desc:f.desc, money:f.money, action:f.action, actionValue:f.actionValue||0, actionDeck:'action', color:f.color, imageUrl:'' };
-      }
-      renderMaker(); toast('Filled with sample tiles');
-    });
-
-    $('#mk_title').addEventListener('input', e=>{ mk_state.title = e.target.value; });
-    $('#mk_tilesCount').addEventListener('change', e=>{ mk_state.tilesCount = Math.max(10, Math.min(200, Number(e.target.value))); renderMaker(); });
-
-    // Deck parsers
-    function parseCareer(txt){
-      return (txt||'')
-        .split(/\n+/).map(l=>l.trim()).filter(Boolean)
-        .map(l=>{ const [title,sal] = l.split('|'); return {title:(title||'Career').trim(), salary:Number(sal)||0}; });
-    }
-    function parseAction(txt){
-      return (txt||'')
-        .split(/\n+/).map(l=>l.trim()).filter(Boolean)
-        .map(l=>{ const [title,m,j] = l.split('|'); return {title:(title||'Action').trim(), money:Number(m)||0, jump:Number(j)||0}; });
-    }
-    function parseLife(txt){
-      return (txt||'')
-        .split(/\n+/).map(l=>l.trim()).filter(Boolean)
-        .map(l=>{ const [title,m] = l.split('|'); return {title:(title||'Life').trim(), money:Number(m)||0}; });
-    }
-
-    $('#mk_applyDecks')?.addEventListener('click',()=>{
-      mk_state.decks.career = parseCareer($('#mk_deck_career').value);
-      mk_state.decks.action = parseAction($('#mk_deck_action').value);
-      mk_state.decks.life   = parseLife($('#mk_deck_life').value);
-      toast('Decks updated (not yet saved)');
-    });
-
-    // Save game to Firebase
-    $('#mk_save').addEventListener('click', async ()=>{
-      await authReady;
-      if(!myUid){ toast('Sign-in failed'); return; }
-      mk_state.title = $('#mk_title').value.trim() || 'Untitled Life Game';
-      mk_state.tilesCount = Number($('#mk_tilesCount').value)||40;
-      mk_state.tiles.forEach((t,i)=> t.idx = i);
-
-      mk_state.decks.career = parseCareer($('#mk_deck_career').value);
-      mk_state.decks.action = parseAction($('#mk_deck_action').value);
-      mk_state.decks.life   = parseLife($('#mk_deck_life').value);
-
-      let gameId = mk_state.gameId || randId(8);
-      const now = Date.now();
-      const gameData = { ownerUid: myUid, title: mk_state.title, tilesCount: mk_state.tilesCount, tiles: mk_state.tiles, decks: mk_state.decks, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
-      await set(dbRef(db, `games/${gameId}`), gameData);
-      await update(dbRef(db, `users/${myUid}/myGames/${gameId}`), { title: mk_state.title, updatedAt: now });
-      mk_state.gameId = gameId; $('#mk_gameId').value = gameId;
-      await refreshGameSelect(); await loadMyGames();
-      toast(`Saved game ${gameId}`);
-    });
-
-    // ===== Library =====
-    async function loadMyGames(){
-      if(!myUid) return;
-      const list = $('#lb_list'); list.innerHTML = '';
-      const snap = await get(dbRef(db, `users/${myUid}/myGames`));
-      const entries = snap.exists()? Object.entries(snap.val()) : [];
-      if(entries.length===0){ list.innerHTML = '<div class="muted">No games saved yet. Create one in the Maker tab.</div>'; return; }
-      for (const [gid, meta] of entries){
-        const card = document.createElement('div'); card.className='card';
-        card.innerHTML = `<div style="flex:1;">
-          <div><strong>${meta.title||gid}</strong></div>
-          <div class="muted">ID: ${gid}</div>
+<!-- FULL-SCREEN ROOM -->
+<section id="room_full" hidden>
+  <div class="roombar">
+    <div>
+      <strong>Room:</strong> <span id="rf_room">—</span>
+      <div class="muted" id="rf_game">—</div>
+    </div>
+    <div class="row"><button id="rf_exit" class="ghost">Exit</button></div>
+  </div>
+  <div class="roomgrid">
+    <div id="rf_board" class="board big"></div>
+    <div class="side">
+      <div id="rf_players" class="players"></div>
+      <div class="row" style="gap:10px;align-items:center;">
+        <button id="rf_roll" class="primary bigdice">🎲 Roll</button>
+        <div>Dice: <strong id="rf_dice">—</strong></div>
+        <div>Turn: <span id="rf_turn">—</span></div>
+      </div>
+      <div class="feed">
+        <div class="row deckbar" style="gap:8px;margin-bottom:8px;">
+          <button id="rf_draw_action">Draw Action</button>
+          <button id="rf_draw_life">Draw Life</button>
+          <button id="rf_draw_family">Draw Family</button>
+          <button id="rf_choose_career">Choose Career</button>
         </div>
-        <button data-act="edit">Edit</button>
-        <button data-act="room" class="primary">Make Room</button>
-        <button data-act="copy" class="ghost">Copy ID</button>`;
-        card.querySelector('[data-act="edit"]').addEventListener('click', async()=>{
-          const gs = await get(dbRef(db, `games/${gid}`)); if(gs.exists()){ const gv=gs.val(); mk_state = { gameId: gid, title: gv.title, tilesCount: gv.tilesCount||gv.tiles?.length||40, tiles: gv.tiles||[], decks: gv.decks||mk_state.decks }; renderMaker(); $$('.tab[data-tab="maker"]')[0].click(); toast('Loaded into Maker'); }
-        });
-        card.querySelector('[data-act="room"]').addEventListener('click', ()=>{
-          $('#pl_gameSelect').value = gid; $$('.tab[data-tab="play"]')[0].click(); toast('Use Create Room to start');
-        });
-        card.querySelector('[data-act="copy"]').addEventListener('click', ()=>{ navigator.clipboard.writeText(gid); toast('Game ID copied'); });
-        list.appendChild(card);
-      }
-    }
+        <div class="muted" id="rf_deck_counts">—</div>
+        <div style="margin-top:8px"><strong>Tile:</strong> <span id="rf_tiletext">—</span></div>
+        <div style="margin-top:6px"><strong>Effect:</strong> <span id="rf_lastcard">—</span></div>
+      </div>
+    </div>
+  </div>
+</section>
 
-    async function refreshGameSelect(){
-      const sel = $('#pl_gameSelect'); sel.innerHTML='';
-      const snap = await get(dbRef(db, `users/${myUid}/myGames`));
-      const entries = snap.exists()? Object.entries(snap.val()) : [];
-      if(entries.length===0){
-        const opt = document.createElement('option'); opt.value=''; opt.textContent='— no saved games —'; sel.appendChild(opt); return;
-      }
-      for (const [gid, meta] of entries){
-        const opt = document.createElement('option'); opt.value=gid; opt.textContent = `${meta.title||gid} (${gid})`; sel.appendChild(opt);
-      }
-    }
+<div class="toast" id="toast"></div>
 
-    // ===== Play / Rooms =====
-    let currentRoomId = null; let currentRoom = null; let currentGame = null; let isHost=false; let myPlayerRef=null; let unsubRoom=null;
+<script type="module">
+/* Firebase */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref as dbRef, set, update, onValue, get, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
-    async function loadGameById(gameId){ const s = await get(dbRef(db, `games/${gameId}`)); return s.exists()? s.val() : null; }
+const firebaseConfig = {
+  apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
+  authDomain: "nomercy-8269a.firebaseapp.com",
+  databaseURL: "https://nomercy-8269a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "nomercy-8269a",
+  storageBucket: "nomercy-8269a.firebasestorage.app",
+  messagingSenderId: "349047620790",
+  appId: "1:349047620790:web:3206ff81cb7f5413d29217",
+  measurementId: "G-1WX7CWBFGF"
+};
+const app = initializeApp(firebaseConfig);
+try{getAnalytics(app);}catch(e){}
+const auth = getAuth(app);
+const db   = getDatabase(app);
+const storage = getStorage(app);
 
-    // Fit helper: compute cols/rows/tile size so all N tiles fit (square tiles)
-    function layoutBoardToFit(b, n){
-      if(!b || !n) return;
-      const gapVar = getComputedStyle(b).getPropertyValue('--gap').trim();
-      const g = Number(gapVar.replace('px','')) || 8;
-      const rect = b.getBoundingClientRect();
-      const W = Math.max(0, rect.width);
-      const H = Math.max(0, rect.height);
-      if(!W || !H) return;
+/* Utilities */
+const $  = s=>document.querySelector(s);
+const $$ = s=>Array.from(document.querySelectorAll(s));
+const toast = (m,ms=1800)=>{const n=$('#toast');n.textContent=m;n.style.display='block';setTimeout(()=>n.style.display='none', ms);};
+const randId = (len=6)=>Math.random().toString(36).slice(2,2+len);
+const directDriveUrl = (url)=>{ if(!url) return ''; try{ const u=new URL(url); if(u.hostname.includes('drive.google.com')){ const parts=u.pathname.split('/'); let id=''; const i=parts.indexOf('d'); if(i>=0 && parts[i+1]) id=parts[i+1]; if(!id) id=u.searchParams.get('id')||''; if(id) return `https://drive.google.com/uc?export=download&id=${id}`; } }catch(e){} return url; };
 
-      let cols = Math.ceil(Math.sqrt(n * (W / H)));
-      cols = Math.max(1, Math.min(n, cols));
-      let rows = Math.ceil(n / cols);
+/* Auth (anon) with “ready” promise */
+let myUid=null; let _res; const authReady=new Promise(r=>_res=r);
+signInAnonymously(auth).catch(console.warn);
+onAuthStateChanged(auth,u=>{ if(u){ myUid=u.uid; _res?.(); $('#lb_user') && ($('#lb_user').textContent=`Signed in as ${myUid.slice(0,6)}… (anon)`); loadMyGames(); refreshGameSelect(); renderMaker(); }});
 
-      const tileW = Math.floor((W - (cols - 1) * g) / cols);
-      const tileH = Math.floor((H - (rows - 1) * g) / rows);
-      let tile = Math.max(10, Math.min(tileW, tileH));
+/* Maker state + Core Rules loader */
+let mk_state = { gameId:'', title:'', tilesCount:40, tiles:[], decks:{ career:[], action:[], life:[], family:[] } };
 
-      const maxCols = Math.max(1, Math.floor((W + g) / (tile + g)));
-      cols = Math.min(cols, maxCols);
-      rows = Math.ceil(n / cols);
+function loadCoreRulesIntoMaker(){
+  mk_state.title = "Core Rules: 40-Tile Life";
+  mk_state.tilesCount = 40;
 
-      const finalTileW = Math.floor((W - (cols - 1) * g) / cols);
-      const finalTileH = Math.floor((H - (rows - 1) * g) / rows);
-      tile = Math.max(10, Math.min(finalTileW, finalTileH));
+  // helper to push
+  const T = [];
+  const add = (i, label, desc, obj={})=>{
+    T[i-1] = Object.assign({idx:i-1, label:`${label} ${i}`, desc, color:'#1b2555', money:0, action:'none', actionValue:0, actionDeck:'action', imageUrl:''}, obj);
+  };
 
-      b.style.gridTemplateColumns = `repeat(${cols}, ${tile}px)`;
-      b.style.gridAutoRows       = `${tile}px`;
-    }
+  /* Childhood 1-10 */
+  add(1, "Start", "Born in the Hood — Payday +50 HP", {action:'none', money:50, color:'#2a3f7c'});
+  add(2, "First Steps", "Flavor only", {action:'none', color:'#243a6b'});
+  add(3, "Dad Left", "Life draw; gain possible Trauma", {action:'draw', actionDeck:'life', color:'#3c2a4f'});
+  add(4, "Fried Chicken Feast", "Payday +30 HP", {action:'none', money:30, color:'#305035'});
+  add(5, "Domestic Chaos", "Stop; +2 Trauma", {action:'stop', actionValue:1, special:'addTrauma', trauma:2, color:'#4a2b2b'});
+  add(6, "Watermelon Summers", "Jump +2", {action:'jump', actionValue:2, color:'#2b4b4e'});
+  add(7, "First Racism Encounter", "Action draw", {action:'draw', actionDeck:'action', color:'#453a2b'});
+  add(8, "Corner Store Run", "If HP<50, lose 10", {action:'special', special:'lowHPFine', color:'#22345b'});
+  add(9, "Block Friends", "Mentor vibe — Family deck", {action:'draw', actionDeck:'family', color:'#253062'});
+  add(10,"End of Innocence", "Go to 11", {action:'goto', actionValue:10, color:'#3b2a5f'}); // zero-indexed later
 
-    // Render helpers for both lobby and full-screen boards
-    function renderPlayersTo(containerId){
-      const root = document.getElementById(containerId); if(!root) return;
-      root.innerHTML='';
-      const players = currentRoom?.players ? Object.entries(currentRoom.players) : [];
-      players.forEach(([uid, p])=>{
-        const pill = document.createElement('div'); pill.className='pill';
-        const av = document.createElement('div'); av.className='avatar'; if(p.avatarUrl){ av.style.backgroundImage = `url(${p.avatarUrl})`; }
-        const dot = document.createElement('div'); dot.className='dot'; dot.style.background = p.color||'#6fa8ff';
-        const name = document.createElement('div'); name.textContent = `${p.name||uid.slice(0,4)} • $${p.money|0} • @${p.position|0} • ${p.career?(''+p.career+' ($'+(p.salary||0)+')'):'No career'}`;
-        pill.appendChild(av); pill.appendChild(dot); pill.appendChild(name); root.appendChild(pill);
+  /* Teen 11-20 */
+  add(11,"High School Start", "Preview careers", {action:'special', special:'previewCareer', color:'#2f355f'});
+  add(12,"Police Brutality Intro", "Jump -3; +2 Trauma", {action:'jump', actionValue:-3, special:'addTrauma', trauma:2, color:'#4a2b2b'});
+  add(13,"Racism in Class", "Life draw", {action:'draw', actionDeck:'life', color:'#453a2b'});
+  add(14,"Side Hustle Begins", "Payday +100 HP", {action:'none', money:100, color:'#305035'});
+  add(15,"Path Choice", "College or Street? Career draw then branch", {action:'special', special:'branch15', color:'#2a3a72'});
+  add(16,"Fried Chicken Cravings", "Flavor", {action:'none', color:'#2b4b4e'});
+  add(17,"Family Drama Escalates", "Family draw; -50 HP support", {action:'draw', actionDeck:'family', money:-50, color:'#4a2b2b'});
+  add(18,"Watermelon Mock", "Jump +1", {action:'jump', actionValue:1, color:'#2b4b4e'});
+  add(19,"Activism Spark", "Action draw; redeem some Trauma", {action:'draw', actionDeck:'action', special:'redeemSmall', color:'#243a6b'});
+  add(20,"Teen Graduation", "Payday +200 HP", {action:'none', money:200, color:'#305035'});
+
+  /* Adulthood 21-30 */
+  add(21,"First Real Job", "Choose career (lock in salary)", {action:'career', color:'#2a3a72'});
+  add(22,"Police Brutality Strike", "Go to 15; +3 Trauma", {action:'goto', actionValue:14, special:'addTrauma', trauma:3, color:'#4a2b2b'});
+  add(23,"Racism at Work", "Stop; -100 HP", {action:'stop', money:-100, color:'#453a2b'});
+  add(24,"Hustle Payoff", "Payday: roll d6 × 50 HP", {action:'special', special:'roll50', color:'#305035'});
+  add(25,"Dad Returns? Nah", "Life draw", {action:'draw', actionDeck:'life', color:'#3c2a4f'});
+  add(26,"Fried Chicken Comfort", "Flavor", {action:'none', color:'#2b4b4e'});
+  add(27,"Domestic Echo", "Family +kid; +2 Trauma", {action:'family', actionValue:1, special:'addTrauma', trauma:2, color:'#4a2b2b'});
+  add(28,"Watermelon Festival", "Jump +3", {action:'jump', actionValue:3, color:'#2b4b4e'});
+  add(29,"Systemic Setback", "Jump -5", {action:'jump', actionValue:-5, color:'#4a2b2b'});
+  add(30,"Grind Milestone", "Action draw", {action:'draw', actionDeck:'action', color:'#243a6b'});
+
+  /* Family Legacy 31-35 */
+  add(31,"Marriage Milestone", "Spouse card; bonus each payday", {action:'family', actionValue:0, special:'spouse', color:'#2a3a72'});
+  add(32,"Kid Arrives", "+1 kid; -100 HP", {action:'family', actionValue:1, money:-100, color:'#4a2b2b'});
+  add(33,"Family Racism Hit", "Life draw", {action:'draw', actionDeck:'life', color:'#453a2b'});
+  add(34,"Police Family Scare", "Stop; +Trauma", {action:'stop', special:'addTrauma', trauma:2, color:'#4a2b2b'});
+  add(35,"Legacy Reflection", "Redeem all Trauma → HP", {action:'special', special:'redeemAll', actionValue:30, color:'#305035'});
+
+  /* Boss Status 36-40 */
+  add(36,"Big Break", "Payday — double current HP", {action:'special', special:'doubleHP', color:'#305035'});
+  add(37,"Final Racism Hurdle", "Action draw", {action:'draw', actionDeck:'action', color:'#453a2b'});
+  add(38,"Police Flashback", "If Trauma>3, big payout", {action:'special', special:'traumaPayout', color:'#2a3a72'});
+  add(39,"Stereotype Roast", "Flavor", {action:'none', color:'#243a6b'});
+  add(40,"Finish: Boss Status", "Game end — highest HP wins", {action:'finish', color:'#3b2a5f'});
+
+  mk_state.tiles = T;
+
+  // Decks
+  mk_state.decks = {
+    career: [
+      {title:'Engineer', salary:40},
+      {title:'Teacher', salary:30},
+      {title:'Rapper',  salary:80},     // high risk/reward is handled via Action deck too
+      {title:'Designer',salary:35},
+      {title:'Entrepreneur', salary:60}
+    ],
+    action: [
+      {title:'Stand Up to Bias', money:50, jump:0},
+      {title:'Back Down', money:-20, jump:0},
+      {title:'Viral Moment', money:120, jump:1},
+      {title:'Bad Press', money:-80, jump:-1},
+      {title:'Community Grant', money:100, jump:0}
+    ],
+    life: [
+      {title:'Mom Works Double Shifts', money:20, trauma:1||0},
+      {title:'Therapy Breakthrough', money:40, trauma:-1||0},
+      {title:'Breakup Blues', money:-30, trauma:1||0},
+      {title:'Health Scare', money:-50, trauma:0}
+    ],
+    family: [
+      {title:'Mentor Steps In', money:30, kids:0, trauma:-1||0},
+      {title:'Spouse Supports You', money:40, kids:0, trauma:0},
+      {title:'New Baby!', money:-50, kids:1, trauma:0},
+      {title:'Caring for Cousins', money:-30, kids:0, trauma:1||0}
+    ]
+  };
+
+  renderMaker(); renderPreview(); fillDeckTextareas();
+  toast('Core Rules loaded');
+}
+
+function fillDeckTextareas(){
+  $('#mk_deck_career').value = (mk_state.decks.career||[]).map(c=>`${c.title}|${c.salary}`).join('\n');
+  $('#mk_deck_action').value = (mk_state.decks.action||[]).map(c=>`${c.title}|${c.money||0}|${c.jump||0}`).join('\n');
+  $('#mk_deck_life').value   = (mk_state.decks.life||[]).map(c=>`${c.title}|${c.money||0}|${c.trauma||0}`).join('\n');
+  $('#mk_deck_family').value = (mk_state.decks.family||[]).map(c=>`${c.title}|${c.money||0}|${c.kids||0}|${c.trauma||0}`).join('\n');
+}
+
+/* Maker UI */
+function renderMaker(){
+  if(!$('#mk_title')) return;
+  $('#mk_title').value = mk_state.title||'';
+  $('#mk_tilesCount').value = mk_state.tilesCount;
+  $('#mk_gameId').value = mk_state.gameId||'';
+
+  while(mk_state.tiles.length < mk_state.tilesCount){
+    mk_state.tiles.push({ idx:mk_state.tiles.length, label:`Tile ${mk_state.tiles.length+1}`, desc:'', money:0, action:'none', actionValue:0, actionDeck:'action', color:'#121842', imageUrl:'' });
+  }
+  if(mk_state.tiles.length > mk_state.tilesCount){ mk_state.tiles.length = mk_state.tilesCount; }
+
+  const root = $('#mk_tiles'); root.innerHTML='';
+  mk_state.tiles.forEach((t,i)=>{
+    const card=document.createElement('div'); card.className='tile-card';
+    card.innerHTML = `
+      <div class="tile-head">
+        <div class="tile-idx">#<input data-k="idx" type="number" min="0" style="width:64px" value="${i}"/></div>
+        <div class="tile-actions">
+          <button data-act="dup">Duplicate</button>
+          <button data-act="del" class="danger">Delete</button>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="col"><label>Label</label><input data-k="label" type="text" value="${t.label||''}"/></div>
+        <div class="col"><label>Color</label><input data-k="color" type="color" value="${t.color||'#121842'}"/></div>
+      </div>
+      <div class="col"><label>Description</label><textarea data-k="desc">${t.desc||''}</textarea></div>
+      <div class="grid3">
+        <div class="col"><label>HP Δ</label><input data-k="money" type="number" value="${t.money||0}"/></div>
+        <div class="col">
+          <label>Action</label>
+          <select data-k="action">
+            <option value="none" ${t.action==='none'?'selected':''}>None</option>
+            <option value="jump" ${t.action==='jump'?'selected':''}>Jump (± steps)</option>
+            <option value="goto" ${t.action==='goto'?'selected':''}>Go to tile #</option>
+            <option value="stop" ${t.action==='stop'?'selected':''}>Stop (miss next)</option>
+            <option value="payday" ${t.action==='payday'?'selected':''}>Payday (add salary)</option>
+            <option value="family" ${t.action==='family'?'selected':''}>Family (+kids/spouse)</option>
+            <option value="draw" ${t.action==='draw'?'selected':''}>Draw Card</option>
+            <option value="career" ${t.action==='career'?'selected':''}>Choose Career</option>
+            <option value="finish" ${t.action==='finish'?'selected':''}>Finish</option>
+            <option value="special" ${t.action==='special'?'selected':''}>Special (script)</option>
+          </select>
+        </div>
+        <div class="col"><label>Action Value</label><input data-k="actionValue" type="number" value="${t.actionValue||0}"/></div>
+      </div>
+      <div class="grid2">
+        <div class="col"><label>Tile Image URL</label><input data-k="imageUrl" type="text" placeholder="https://... or Drive link" value="${t.imageUrl||''}"/></div>
+        <div class="col">
+          <label>Deck (Draw/Career/Family)</label>
+          <select data-k="actionDeck">
+            <option value="action" ${t.actionDeck==='action'?'selected':''}>Action</option>
+            <option value="life" ${t.actionDeck==='life'?'selected':''}>Life</option>
+            <option value="career" ${t.actionDeck==='career'?'selected':''}>Career</option>
+            <option value="family" ${t.actionDeck==='family'?'selected':''}>Family</option>
+          </select>
+        </div>
+      </div>
+    `;
+    card.querySelectorAll('[data-k]').forEach(el=>{
+      el.addEventListener('change', ()=>{
+        const k=el.dataset.k; let v=el.value;
+        if(k==='money'||k==='actionValue'||k==='idx') v=Number(v);
+        if(k==='imageUrl') v=directDriveUrl(v);
+        mk_state.tiles[i][k]=v;
+        if(k==='idx'){
+          const to = Math.max(0, Math.min(mk_state.tiles.length-1, v|0));
+          if(to!==i){ const [it]=mk_state.tiles.splice(i,1); mk_state.tiles.splice(to,0,it); renderMaker(); }
+        }
+        renderPreview();
       });
-    }
-    function renderBoardTo(containerId, fit=false){
-      const b = document.getElementById(containerId); if(!b || !currentGame) return; 
-      b.classList.toggle('fit', fit);
-      b.innerHTML='';
-      const players = currentRoom?.players ? Object.entries(currentRoom.players) : [];
-      currentGame.tiles.forEach((t, idx)=>{
-        const s = document.createElement('div'); s.className='space'; s.style.background = t.color||'#121842';
-        if(t.imageUrl){ s.style.backgroundImage = `url(${t.imageUrl})`; s.style.backgroundSize='cover'; s.style.backgroundPosition='center'; s.style.opacity=0.92; }
-        const lab = document.createElement('div'); lab.className='label'; lab.textContent = t.label||`Tile ${idx+1}`; s.appendChild(lab);
-        const here = players.filter(([_,p])=> (p.position|0)===idx);
-        here.forEach(([,p],i)=>{
-          const tok = document.createElement('div'); tok.className='token'; if(i===1) tok.classList.add('stack2'); if(i>=2) tok.classList.add('stack3');
-          tok.style.background = p.avatarUrl? undefined : (p.color||'#9aa7ff');
-          if(p.avatarUrl){ tok.style.backgroundImage = `url(${p.avatarUrl})`; tok.style.backgroundSize='cover'; tok.style.backgroundPosition='center'; }
-          s.appendChild(tok);
-        });
-        b.appendChild(s);
-      });
-      if(fit){ layoutBoardToFit(b, currentGame.tiles.length); }
-    }
-
-    function renderRoomUI(){
-      $('#room_info').textContent = currentRoomId? `${currentRoom?.name||''} • ${currentRoomId}`:'—';
-      $('#game_info').textContent = currentGame? `${currentGame.title} • ${currentGame.tilesCount} tiles`:'—';
-
-      renderPlayersTo('pl_players');
-      renderBoardTo('pl_board', false);
-
-      const turnUid = currentRoom?.turn?.uid; $('#pl_turn').textContent = turnUid? (currentRoom.players?.[turnUid]?.name || turnUid.slice(0,6)) : '—';
-      $('#pl_dice').textContent = currentRoom?.dice?.last || '—';
-      const myTurn = turnUid && turnUid===myUid && currentRoom?.started;
-      $('#pl_roll').disabled = !myTurn;
-
-      // mirror to full view
-      $('#rf_room').textContent = currentRoomId? `${currentRoom?.name||''} • ${currentRoomId}`:'—';
-      $('#rf_game').textContent = currentGame? `${currentGame.title} • ${currentGame.tilesCount} tiles`:'—';
-      $('#rf_turn').textContent = turnUid? (currentRoom.players?.[turnUid]?.name || turnUid.slice(0,6)) : '—';
-      $('#rf_dice').textContent = currentRoom?.dice?.last || '—';
-      renderPlayersTo('rf_players');
-      renderBoardTo('rf_board', true);  // auto-fit here
-
-      const canControl = !!(currentRoom?.started && (isHost || (turnUid===myUid)));
-      ['rf_roll','rf_draw_action','rf_draw_life','rf_choose_career'].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled = !canControl; });
-      const tp = turnUid? currentRoom.players?.[turnUid] : null;
-      const chooseBtn = document.getElementById('rf_choose_career'); if(chooseBtn) chooseBtn.disabled = chooseBtn.disabled || !!(tp?.career);
-
-      const dc = currentGame?.decks||{}; const dcTxt = `Action: ${(dc.action?.length||0)} • Life: ${(dc.life?.length||0)} • Career: ${(dc.career?.length||0)}`;
-      const dcEl = document.getElementById('rf_deck_counts'); if(dcEl) dcEl.textContent = dcTxt;
-    }
-
-    async function createRoom(){
-      const selGame = $('#pl_gameSelect').value; if(!selGame){ toast('Pick a game from the dropdown'); return; }
-      const name = ($('#pl_roomName').value.trim()||`room-${randId()}`).slice(0,40);
-      const rid = randId(8);
-      const game = await loadGameById(selGame);
-      if(!game){ toast('Game not found'); return; }
-      const room = { gameId: selGame, name, hostUid: myUid, createdAt: serverTimestamp(), started:false, dice:{ last:0 }, players:{} };
-      await set(dbRef(db, `rooms/${rid}`), room);
-      toast(`Room created: ${rid}`);
-      $('#pl_roomId').value = rid;
-      await joinRoom(rid);
-      isHost = true;
-    }
-
-    async function uploadAvatarIfNeeded(){
-      const file = $('#pl_avatar').files?.[0];
-      let url = ($('#pl_avatarUrl').value||'').trim();
-      if(url){ return directDriveUrl(url); }
-      if(file){
-        const sref = storageRef(storage, `avatars/${myUid}/${Date.now()}_${file.name}`);
-        await uploadBytes(sref, file);
-        url = await getDownloadURL(sref);
-        return url;
-      }
-      return '';
-    }
-
-    async function joinRoom(roomId){
-      const name = ($('#pl_name').value.trim()||`Player-${randId(3)}`).slice(0,18);
-      const color = $('#pl_color').value||'#6fa8ff';
-      const avatarUrl = await uploadAvatarIfNeeded();
-
-      const pRef = dbRef(db, `rooms/${roomId}/players/${myUid}`);
-      await update(pRef, { name, color, avatarUrl: avatarUrl||null, money: 100, position: 0, family: 0, career: null, salary: 0, joinedAt: serverTimestamp() });
-      currentRoomId = roomId; myPlayerRef = pRef;
-
-      if(unsubRoom) unsubRoom();
-      const roomRef = dbRef(db, `rooms/${roomId}`);
-      const off = onValue(roomRef, async (snap)=>{
-        if(!snap.exists()){ toast('Room closed'); return; }
-        currentRoom = snap.val();
-        if(!currentGame){ currentGame = await loadGameById(currentRoom.gameId); }
-        renderRoomUI();
-        if(currentRoom.started) showRoomFull(true);
-      });
-      unsubRoom = ()=> off();
-      toast(`Joined room ${roomId}`);
-    }
-
-    async function leaveRoom(){
-      if(!currentRoomId) return;
-      await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { leftAt: serverTimestamp() });
-      currentRoomId = null; currentRoom=null; currentGame=null; isHost=false; myPlayerRef=null; renderRoomUI();
-      showRoomFull(false);
-      toast('Left room');
-    }
-
-    async function hostStart(){
-      if(!isHost || !currentRoomId) return;
-      const players = Object.keys(currentRoom.players||{});
-      if(players.length<1){ toast('Need at least 1 player'); return; }
-      const turn = { uid: players[0], idx:0 };
-      await update(dbRef(db, `rooms/${currentRoomId}`), { started:true, turn });
-      showRoomFull(true);
-    }
-
-    async function hostReset(){
-      if(!isHost || !currentRoomId) return;
-      const players = Object.keys(currentRoom.players||{});
-      const updates = {};
-      players.forEach(uid=>{ updates[`rooms/${currentRoomId}/players/${uid}/position`] = 0; updates[`rooms/${currentRoomId}/players/${uid}/money`] = 100; updates[`rooms/${currentRoomId}/players/${uid}/salary`] = 0; updates[`rooms/${currentRoomId}/players/${uid}/career`] = null; updates[`rooms/${currentRoomId}/players/${uid}/family`] = 0; });
-      updates[`rooms/${currentRoomId}/dice/last`] = 0; updates[`rooms/${currentRoomId}/started`] = false; updates[`rooms/${currentRoomId}/winner`] = null;
-      await update(dbRef(db), updates); toast('Room reset');
-      showRoomFull(false);
-    }
-
-    function nextTurn(){
-      const order = Object.keys(currentRoom.players||{});
-      if(order.length===0) return { uid:null, idx:0 };
-      const curIdx = currentRoom.turn?.idx||0; const nextIdx = (curIdx+1)%order.length; return { uid: order[nextIdx], idx: nextIdx };
-    }
-
-    async function drawFromDeck(uid, deck){
-      const g = currentGame;
-      const p = currentRoom.players?.[uid];
-      if(!g?.decks || !g.decks[deck] || g.decks[deck].length===0){ toast(`Deck '${deck}' empty`); return null; }
-      const pool = g.decks[deck];
-      const card = pool[Math.floor(Math.random()*pool.length)];
-      if(deck==='career'){
-        await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { career: card.title, salary: Number(card.salary)||0 });
-        toast(`${p?.name||uid} chose career: ${card.title} (salary $${card.salary||0})`);
-      } else {
-        const money = Number(card.money||0);
-        const jump  = Number(card.jump||0);
-        const pos = (p?.position)||0;
-        const newPos = Math.max(0, Math.min(currentGame.tiles.length-1, pos + jump));
-        await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { money: ((p?.money)||0)+money, position: newPos });
-        let note = `${card.title}`; if(money) note += ` ${money>0?'+':''}${money}`; if(jump) note += ` (jump ${jump})`; toast(note);
-      }
-      return card;
-    }
-
-    async function applyTileEffects(uid, idx){
-      const t = currentGame.tiles[idx];
-      let moneyΔ = Number(t.money||0);
-      let newPos = idx;
-      if(t.action==='jump') newPos = Math.max(0, Math.min(currentGame.tiles.length-1, newPos + (Number(t.actionValue)||0)));
-      if(t.action==='goto') newPos = Math.max(0, Math.min(currentGame.tiles.length-1, Number(t.actionValue)||0));
-
-      const p = currentRoom.players?.[uid]||{ money:0, family:0, career:null, salary:0 };
-
-      if(t.action==='payday') moneyΔ += (p.salary||0);
-      if(t.action==='family') { const add = (Number(t.actionValue)||1); await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { family: (p.family||0)+add }); }
-      if(t.action==='draw' || t.action==='career') {
-        const deckName = (t.action==='career')? 'career' : (t.actionDeck||'action');
-        await drawFromDeck(uid, deckName);
-      }
-      if(t.action==='finish'){
-        await update(dbRef(db, `rooms/${currentRoomId}`), { started:false, winner: uid });
-        toast(`${p.name||uid} reached Finish!`);
-      }
-
-      const newMoney = (p.money|0) + moneyΔ;
-      await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { position: newPos, money: newMoney });
-      if(moneyΔ!==0){ toast(`${p.name||uid} ${moneyΔ>0?'+':''}${moneyΔ}`); }
-    }
-
-    async function rollDice(){
-      if(!currentRoomId || !currentRoom?.started) return;
-      const turnUid = currentRoom?.turn?.uid; if(turnUid!==myUid){ toast('Not your turn'); return; }
-      const roll = 1 + Math.floor(Math.random()*6);
-      await update(dbRef(db, `rooms/${currentRoomId}/dice`), { last: roll, by: myUid, ts: serverTimestamp() });
-
-      const pos = currentRoom.players?.[myUid]?.position || 0;
-      const dest = (pos + roll) % (currentGame.tiles.length);
-      await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { position: dest });
-      await applyTileEffects(myUid, dest);
-
-      const nt = nextTurn();
-      await update(dbRef(db, `rooms/${currentRoomId}/`), { turn: nt });
-    }
-
-    // Play buttons
-    $('#pl_create').addEventListener('click', createRoom);
-    $('#pl_join').addEventListener('click', async()=>{
-      const rid = $('#pl_roomId').value.trim(); if(!rid){ toast('Enter a room ID'); return; }
-      await joinRoom(rid);
-      isHost = currentRoom?.hostUid===myUid;
     });
-    $('#pl_leave').addEventListener('click', leaveRoom);
-    $('#host_start').addEventListener('click', hostStart);
-    $('#host_reset').addEventListener('click', hostReset);
-    $('#pl_roll').addEventListener('click', rollDice);
+    card.querySelector('[data-act="dup"]').addEventListener('click', ()=>{ const c=JSON.parse(JSON.stringify(mk_state.tiles[i])); mk_state.tiles.splice(i+1,0,c); mk_state.tilesCount=mk_state.tiles.length; renderMaker(); renderPreview(); });
+    card.querySelector('[data-act="del"]').addEventListener('click', ()=>{ mk_state.tiles.splice(i,1); mk_state.tilesCount=mk_state.tiles.length; renderMaker(); renderPreview(); });
+    root.appendChild(card);
+  });
+  renderPreview();
+}
+function renderPreview(){
+  const b=$('#mk_boardPreview'); b.innerHTML='';
+  mk_state.tiles.forEach((t,i)=>{
+    const s=document.createElement('div'); s.className='space'; s.style.background=t.color||'#121842';
+    if(t.imageUrl){ s.style.backgroundImage=`url(${t.imageUrl})`; s.style.backgroundSize='cover'; s.style.backgroundPosition='center'; s.style.opacity=0.9; }
+    const lab=document.createElement('div'); lab.className='label';
+    let extra='';
+    if(t.action==='payday') extra=' 💰';
+    if(t.action==='draw'||t.action==='career'||(t.action==='family'&&t.actionDeck==='family')) extra=` 🃏(${t.actionDeck||'action'})`;
+    if(t.action==='family') extra+=` 👶`;
+    if(t.action==='finish') extra+=' 🏁';
+    lab.textContent=(t.label||`Tile ${i+1}`)+extra; s.appendChild(lab); b.appendChild(s);
+  });
+}
 
-    // Full view controls
-    function showRoomFull(show){
-      const rf = document.getElementById('room_full'); if(!rf) return;
-      rf.hidden = !show;
-      document.querySelector('header').style.display = show ? 'none' : '';
-      ['maker','library','play'].forEach(id=>{ const el=document.getElementById(id); if(el) el.hidden = show; });
-      if(show && currentGame){ // ensure initial fit
-        const b = document.getElementById('rf_board');
-        layoutBoardToFit(b, currentGame.tiles.length);
+/* Deck text parsing */
+const parseCareer = txt => (txt||'').split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>{const[a,b]=l.split('|');return {title:(a||'Career').trim(), salary:Number(b)||0};});
+const parseAction  = txt => (txt||'').split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>{const[a,b,c]=l.split('|');return {title:(a||'Action').trim(), money:Number(b)||0, jump:Number(c)||0};});
+const parseLife    = txt => (txt||'').split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>{const[a,b,c]=l.split('|');return {title:(a||'Life').trim(), money:Number(b)||0, trauma:Number(c)||0};});
+const parseFamily  = txt => (txt||'').split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>{const[a,b,c,d]=l.split('|');return {title:(a||'Family').trim(), money:Number(b)||0, kids:Number(c)||0, trauma:Number(d)||0};});
+
+function applyDeckTextAreas(){
+  mk_state.decks.career = parseCareer($('#mk_deck_career').value);
+  mk_state.decks.action = parseAction($('#mk_deck_action').value);
+  mk_state.decks.life   = parseLife($('#mk_deck_life').value);
+  mk_state.decks.family = parseFamily($('#mk_deck_family').value);
+}
+
+/* Maker buttons */
+$('#mk_new').addEventListener('click', ()=>{ mk_state={ gameId:'', title:'', tilesCount:40, tiles:[], decks:{ career:[], action:[], life:[], family:[] } }; renderMaker(); toast('New game'); });
+$('#mk_add10').addEventListener('click', ()=>{ mk_state.tilesCount=Math.min(200, mk_state.tilesCount+10); renderMaker(); });
+$('#mk_fill').addEventListener('click', loadCoreRulesIntoMaker);
+$('#mk_title').addEventListener('input', e=>{ mk_state.title=e.target.value; });
+$('#mk_tilesCount').addEventListener('change', e=>{ mk_state.tilesCount=Math.max(10, Math.min(200, Number(e.target.value))); renderMaker(); });
+$('#mk_applyDecks').addEventListener('click', ()=>{ applyDeckTextAreas(); toast('Decks updated (not saved)'); });
+
+/* Save */
+$('#mk_save').addEventListener('click', async()=>{
+  await authReady;
+  if(!myUid){ toast('Sign-in failed'); return; }
+  mk_state.title = $('#mk_title').value.trim() || 'Untitled Life Game';
+  mk_state.tilesCount = Number($('#mk_tilesCount').value)||40;
+  mk_state.tiles.forEach((t,i)=> t.idx=i);
+  applyDeckTextAreas();
+
+  const gameId = mk_state.gameId || randId(8);
+  const gameData = { ownerUid: myUid, title: mk_state.title, tilesCount: mk_state.tilesCount, tiles: mk_state.tiles, decks: mk_state.decks, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), rules:{currency:'HP', trauma:true, burnoutAt:5} };
+  await set(dbRef(db, `games/${gameId}`), gameData);
+  await update(dbRef(db, `users/${myUid}/myGames/${gameId}`), { title: mk_state.title, updatedAt: Date.now() });
+  mk_state.gameId=gameId; $('#mk_gameId').value=gameId;
+  await refreshGameSelect(); await loadMyGames();
+  toast(`Saved game ${gameId}`);
+});
+
+/* Library */
+async function loadMyGames(){
+  if(!myUid) return;
+  const list=$('#lb_list'); list.innerHTML='';
+  const snap=await get(dbRef(db, `users/${myUid}/myGames`));
+  const entries=snap.exists()?Object.entries(snap.val()):[];
+  if(entries.length===0){ list.innerHTML='<div class="muted">No games saved yet. Load “Core Rules” in Maker and save.</div>'; return; }
+  for(const [gid,meta] of entries){
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML=`<div style="flex:1;"><div><strong>${meta.title||gid}</strong></div><div class="muted">ID: ${gid}</div></div>
+      <button data-act="edit">Edit</button><button data-act="room" class="primary">Make Room</button><button data-act="copy" class="ghost">Copy ID</button>`;
+    card.querySelector('[data-act="edit"]').addEventListener('click', async()=>{
+      const gs=await get(dbRef(db, `games/${gid}`));
+      if(gs.exists()){ const gv=gs.val(); mk_state={ gameId:gid, title:gv.title, tilesCount:gv.tilesCount||gv.tiles?.length||40, tiles:gv.tiles||[], decks:gv.decks||{career:[],action:[],life:[],family:[]} }; renderMaker(); fillDeckTextareas(); $$('.tab[data-tab="maker"]')[0].click(); toast('Loaded into Maker'); }
+    });
+    card.querySelector('[data-act="room"]').addEventListener('click', ()=>{ $('#pl_gameSelect').value=gid; $$('.tab[data-tab="play"]')[0].click(); toast('Use Create Room'); });
+    card.querySelector('[data-act="copy"]').addEventListener('click', ()=>{ navigator.clipboard.writeText(gid); toast('Game ID copied'); });
+    list.appendChild(card);
+  }
+}
+async function refreshGameSelect(){
+  const sel=$('#pl_gameSelect'); sel.innerHTML='';
+  const snap=await get(dbRef(db, `users/${myUid}/myGames`));
+  const entries=snap.exists()?Object.entries(snap.val()):[];
+  if(entries.length===0){ const opt=document.createElement('option'); opt.value=''; opt.textContent='— no saved games —'; sel.appendChild(opt); return; }
+  for(const [gid,meta] of entries){ const opt=document.createElement('option'); opt.value=gid; opt.textContent=`${meta.title||gid} (${gid})`; sel.appendChild(opt); }
+}
+
+/* PLAY / ROOMS */
+let currentRoomId=null, currentRoom=null, currentGame=null, isHost=false, myPlayerRef=null, unsubRoom=null;
+
+async function loadGameById(gameId){ const s=await get(dbRef(db, `games/${gameId}`)); return s.exists()?s.val():null; }
+
+/* Fit grid so all tiles are visible */
+function layoutBoardToFit(b,n){
+  if(!b||!n) return;
+  const gapVar=getComputedStyle(b).getPropertyValue('--gap').trim();
+  const g=Number(gapVar.replace('px',''))||8;
+  const r=b.getBoundingClientRect(); const W=Math.max(0,r.width), H=Math.max(0,r.height); if(!W||!H) return;
+  let cols=Math.ceil(Math.sqrt(n*(W/H))); cols=Math.max(1,Math.min(n,cols)); let rows=Math.ceil(n/cols);
+  const tileW=Math.floor((W-(cols-1)*g)/cols); const tileH=Math.floor((H-(rows-1)*g)/rows); let tile=Math.max(10,Math.min(tileW,tileH));
+  const maxCols=Math.max(1,Math.floor((W+g)/(tile+g))); cols=Math.min(cols,maxCols); rows=Math.ceil(n/cols);
+  const finalW=Math.floor((W-(cols-1)*g)/cols); const finalH=Math.floor((H-(rows-1)*g)/rows); tile=Math.max(10,Math.min(finalW,finalH));
+  b.style.gridTemplateColumns=`repeat(${cols}, ${tile}px)`; b.style.gridAutoRows=`${tile}px`;
+}
+
+/* Render helpers */
+function renderPlayersTo(id){
+  const root=document.getElementById(id); if(!root) return; root.innerHTML='';
+  const players=currentRoom?.players?Object.entries(currentRoom.players):[];
+  players.forEach(([uid,p])=>{
+    const pill=document.createElement('div'); pill.className='pill';
+    const av=document.createElement('div'); av.className='avatar'; if(p.avatarUrl){ av.style.backgroundImage=`url(${p.avatarUrl})`; }
+    const dot=document.createElement('div'); dot.className='dot'; dot.style.background=p.color||'#6fa8ff';
+    const name=document.createElement('div'); name.textContent=`${p.name||uid.slice(0,4)} • HP ${p.money|0} • @${p.position|0} • ${p.career?(`${p.career} (HP ${p.salary||0})`):'No career'} • TT ${p.trauma|0} • Kids ${p.kids|0}`;
+    pill.appendChild(av);pill.appendChild(dot);pill.appendChild(name);root.appendChild(pill);
+  });
+}
+function renderBoardTo(id, fit=false){
+  const b=document.getElementById(id); if(!b||!currentGame) return; b.classList.toggle('fit',fit); b.innerHTML='';
+  const players=currentRoom?.players?Object.entries(currentRoom.players):[];
+  currentGame.tiles.forEach((t,idx)=>{
+    const s=document.createElement('div'); s.className='space'; s.style.background=t.color||'#121842';
+    if(t.imageUrl){ s.style.backgroundImage=`url(${t.imageUrl})`; s.style.backgroundSize='cover'; s.style.backgroundPosition='center'; s.style.opacity=0.92; }
+    const lab=document.createElement('div'); lab.className='label'; lab.textContent=t.label||`Tile ${idx+1}`; s.appendChild(lab);
+    const here=players.filter(([_,p])=>(p.position|0)===idx);
+    here.forEach(([,p],i)=>{ const tok=document.createElement('div'); tok.className='token'; if(i===1) tok.classList.add('stack2'); if(i>=2) tok.classList.add('stack3');
+      tok.style.background=p.avatarUrl?undefined:(p.color||'#9aa7ff'); if(p.avatarUrl){ tok.style.backgroundImage=`url(${p.avatarUrl})`; tok.style.backgroundSize='cover'; tok.style.backgroundPosition='center'; }
+      s.appendChild(tok);
+    });
+    b.appendChild(s);
+  });
+  if(fit) layoutBoardToFit(b, currentGame.tiles.length);
+}
+function renderRoomUI(){
+  $('#room_info').textContent=currentRoomId?`${currentRoom?.name||''} • ${currentRoomId}`:'—';
+  $('#game_info').textContent=currentGame?`${currentGame.title} • ${currentGame.tilesCount} tiles`:'—';
+
+  renderPlayersTo('pl_players'); renderBoardTo('pl_board', false);
+
+  const turnUid=currentRoom?.turn?.uid; $('#pl_turn').textContent=turnUid?(currentRoom.players?.[turnUid]?.name||turnUid.slice(0,6)):'—';
+  $('#pl_dice').textContent=currentRoom?.dice?.last||'—'; $('#pl_roll').disabled=!(turnUid && turnUid===myUid && currentRoom?.started);
+
+  // full view mirror
+  $('#rf_room').textContent=$('#room_info').textContent;
+  $('#rf_game').textContent=$('#game_info').textContent;
+  $('#rf_turn').textContent=$('#pl_turn').textContent;
+  $('#rf_dice').textContent=$('#pl_dice').textContent;
+  renderPlayersTo('rf_players'); renderBoardTo('rf_board', true);
+
+  const dc=currentGame?.decks||{}; $('#rf_deck_counts').textContent=`Action: ${(dc.action?.length||0)} • Life: ${(dc.life?.length||0)} • Family: ${(dc.family?.length||0)} • Career: ${(dc.career?.length||0)}`;
+}
+
+/* Room create/join */
+async function createRoom(){
+  const selGame=$('#pl_gameSelect').value; if(!selGame){ toast('Pick a saved game'); return; }
+  const name=($('#pl_roomName').value.trim()||`room-${randId()}`).slice(0,40);
+  const rid=randId(8);
+  const game=await loadGameById(selGame); if(!game){ toast('Game not found'); return; }
+  const room={ gameId:selGame, name, hostUid:myUid, createdAt:serverTimestamp(), started:false, dice:{last:0}, players:{} };
+  await set(dbRef(db, `rooms/${rid}`), room);
+  $('#pl_roomId').value=rid; toast(`Room created: ${rid}`); await joinRoom(rid); isHost=true;
+}
+async function uploadAvatarIfNeeded(){
+  const file=$('#pl_avatar').files?.[0]; let url=$('#pl_avatarUrl').value.trim();
+  if(url) return directDriveUrl(url);
+  if(file){ const sref=storageRef(storage, `avatars/${myUid}/${Date.now()}_${file.name}`); await uploadBytes(sref,file); url=await getDownloadURL(sref); return url; }
+  return '';
+}
+async function joinRoom(roomId){
+  const name=($('#pl_name').value.trim()||`Player-${randId(3)}`).slice(0,18);
+  const color=$('#pl_color').value||'#6fa8ff';
+  const avatarUrl=await uploadAvatarIfNeeded();
+  const pRef=dbRef(db, `rooms/${roomId}/players/${myUid}`);
+  await update(pRef,{ name,color,avatarUrl:avatarUrl||null,money:100,position:0,kids:0,spouse:false,career:null,salary:0,trauma:0,skip:0,joinedAt:serverTimestamp() });
+  currentRoomId=roomId; myPlayerRef=pRef;
+
+  if(unsubRoom) unsubRoom();
+  const roomRef=dbRef(db, `rooms/${roomId}`);
+  const off=onValue(roomRef, async snap=>{
+    if(!snap.exists()){ toast('Room closed'); return; }
+    currentRoom=snap.val(); if(!currentGame){ currentGame=await loadGameById(currentRoom.gameId); }
+    renderRoomUI(); if(currentRoom.started) showRoomFull(true);
+  });
+  unsubRoom=()=>off(); toast(`Joined room ${roomId}`);
+}
+async function leaveRoom(){
+  if(!currentRoomId) return;
+  await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { leftAt:serverTimestamp() });
+  currentRoomId=null; currentRoom=null; currentGame=null; isHost=false; myPlayerRef=null; renderRoomUI(); showRoomFull(false); toast('Left room');
+}
+async function hostStart(){
+  if(!isHost||!currentRoomId) return;
+  const players=Object.keys(currentRoom.players||{});
+  if(players.length<1){ toast('Need at least 1 player'); return; }
+  const turn={ uid:players[0], idx:0 }; await update(dbRef(db, `rooms/${currentRoomId}`), { started:true, turn }); showRoomFull(true);
+}
+async function hostReset(){
+  if(!isHost||!currentRoomId) return;
+  const players=Object.keys(currentRoom.players||{});
+  const updates={}; players.forEach(uid=>{ updates[`rooms/${currentRoomId}/players/${uid}/position`]=0; updates[`rooms/${currentRoomId}/players/${uid}/money`]=100; updates[`rooms/${currentRoomId}/players/${uid}/salary`]=0; updates[`rooms/${currentRoomId}/players/${uid}/career`]=null; updates[`rooms/${currentRoomId}/players/${uid}/kids`]=0; updates[`rooms/${currentRoomId}/players/${uid}/spouse`]=false; updates[`rooms/${currentRoomId}/players/${uid}/trauma`]=0; updates[`rooms/${currentRoomId}/players/${uid}/skip`]=0; });
+  updates[`rooms/${currentRoomId}/dice/last`]=0; updates[`rooms/${currentRoomId}/started`]=false; updates[`rooms/${currentRoomId}/winner`]=null;
+  await update(dbRef(db), updates); toast('Room reset'); showRoomFull(false);
+}
+function nextTurn(){
+  const order=Object.keys(currentRoom.players||{}); if(order.length===0) return {uid:null,idx:0};
+  const curIdx=currentRoom.turn?.idx||0; const nextIdx=(curIdx+1)%order.length; return { uid:order[nextIdx], idx:nextIdx };
+}
+
+/* Deck operations */
+async function drawFromDeck(uid, deck){
+  const g=currentGame, p=currentRoom.players?.[uid]; if(!g?.decks||!g.decks[deck]||g.decks[deck].length===0){ toast(`Deck '${deck}' empty`); return null; }
+  const pool=g.decks[deck]; const card=pool[Math.floor(Math.random()*pool.length)];
+
+  let money=(card.money||0); let jump=(card.jump||0);
+  let kids=(card.kids||0); let trauma=(card.trauma||0);
+
+  const pos=p.position||0; const newPos=Math.max(0, Math.min(currentGame.tiles.length-1, pos + jump));
+  const upd={};
+
+  if(deck==='career'){ upd.career=card.title; upd.salary=Number(card.salary)||0; }
+  else { upd.money=(p.money||0)+money; upd.position=newPos; upd.kids=(p.kids||0)+kids; upd.trauma=Math.max(0,(p.trauma||0)+trauma); }
+
+  await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), upd);
+  return card;
+}
+
+/* Tile effects & rules */
+function setFeed(tileText, effectText){ $('#rf_tiletext').textContent=tileText||'—'; $('#rf_lastcard').textContent=effectText||'—'; }
+
+async function applyTileEffects(uid, idx){
+  const t=currentGame.tiles[idx]; const p=currentRoom.players?.[uid]||{money:0,kids:0,spouse:false,career:null,salary:0,trauma:0,skip:0};
+  let moneyΔ=Number(t.money||0); let newPos=idx; let note=[];
+
+  // generic actions
+  if(t.action==='jump'){ newPos=Math.max(0,Math.min(currentGame.tiles.length-1, newPos + (Number(t.actionValue)||0))); note.push(`Jump ${Number(t.actionValue)||0}`); }
+  if(t.action==='goto'){ newPos=Math.max(0,Math.min(currentGame.tiles.length-1, Number(t.actionValue)||0)); note.push(`Go to ${Number(t.actionValue)||0 + 1}`); }
+  if(t.action==='stop'){ const skip=(p.skip||0)+1; await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { skip }); note.push(`Stop — miss next turn`); }
+  if(t.action==='payday'){ moneyΔ += (p.salary||0); note.push(`Payday +HP ${p.salary||0}`); }
+  if(t.action==='family'){
+    // spouse or kid
+    if(t.special==='spouse' && !p.spouse){ await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { spouse:true }); note.push('Spouse joined (bonus at paydays)'); }
+    const addKids = Number(t.actionValue)||0; if(addKids>0){ await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { kids:(p.kids||0)+addKids }); moneyΔ -= 50*addKids; note.push(`+${addKids} kid(s) (upkeep -50 each now)`); }
+  }
+  if(t.action==='draw'||t.action==='career'){ const deckName=(t.action==='career')?'career':(t.actionDeck||'action'); const c=await drawFromDeck(uid, deckName); if(c){ note.push(`${deckName[0].toUpperCase()+deckName.slice(1)}: ${c.title}${(c.money?` (${c.money>0?'+':''}${c.money} HP)`:``)}`); } }
+  if(t.action==='finish'){
+    // winner: highest HP; tie → fewest trauma
+    const players=Object.entries(currentRoom.players||{});
+    let best=null;
+    players.forEach(([u,pp])=>{
+      if(!best) best=[u,pp];
+      else{
+        if((pp.money|0)>(best[1].money|0)) best=[u,pp];
+        else if((pp.money|0)===(best[1].money|0) && (pp.trauma|0)<(best[1].trauma|0)) best=[u,pp];
       }
-    }
-    document.getElementById('rf_exit')?.addEventListener('click', ()=> showRoomFull(false));
-    document.getElementById('rf_roll')?.addEventListener('click', rollDice);
-    document.getElementById('rf_draw_action')?.addEventListener('click', async()=>{
-      if(!currentRoom?.turn?.uid) return; const c = await drawFromDeck(currentRoom.turn.uid,'action'); if(c) document.getElementById('rf_lastcard').textContent = `Action: ${c.title}${c.money?` ${(c.money>0?'+':'')+c.money}`:''}${c.jump?` (jump ${c.jump})`:''}`;
     });
-    document.getElementById('rf_draw_life')?.addEventListener('click', async()=>{
-      if(!currentRoom?.turn?.uid) return; const c = await drawFromDeck(currentRoom.turn.uid,'life'); if(c) document.getElementById('rf_lastcard').textContent = `Life: ${c.title}${c.money?` ${(c.money>0?'+':'')+c.money}`:''}`;
-    });
-    document.getElementById('rf_choose_career')?.addEventListener('click', async()=>{
-      if(!currentRoom?.turn?.uid) return; const c = await drawFromDeck(currentRoom.turn.uid,'career'); if(c) document.getElementById('rf_lastcard').textContent = `Career: ${c.title} (salary $${c.salary||0})`;
-    });
+    await update(dbRef(db, `rooms/${currentRoomId}`), { started:false, winner: best?best[0]:uid });
+    note.push('Finish! Tally HP.');
+  }
 
-    // Keep the full-screen board fitted on window resize.
-    window.addEventListener('resize', ()=>{
-      const b = document.getElementById('rf_board');
-      if(b && !b.hidden && currentGame) layoutBoardToFit(b, currentGame.tiles.length);
-    });
+  // specials
+  if(t.special==='addTrauma'){ const newT=(p.trauma||0)+(t.trauma||0); await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { trauma:newT }); note.push(`Trauma +${t.trauma||0}`); if(newT>=5){ await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { skip:(p.skip||0)+1 }); note.push('Burnout — miss next turn'); } }
+  if(t.special==='lowHPFine'){ if((p.money|0)<50){ moneyΔ-=10; note.push('Low HP fee -10'); } }
+  if(t.special==='previewCareer'){ const list=(currentGame.decks?.career||[]).map(c=>c.title).slice(0,5).join(', '); note.push(`Preview: ${list}`); }
+  if(t.special==='branch15'){
+    // draw career preview/choice
+    await drawFromDeck(uid,'career');
+    const college = confirm('Path Choice — OK = College (Jump +5), Cancel = Street Hustle (draw Action)');
+    if(college){ newPos=Math.max(0, Math.min(currentGame.tiles.length-1, idx+5)); note.push('College path: Jump +5'); }
+    else{ const c=await drawFromDeck(uid,'action'); note.push(`Street path: Action — ${c?c.title:''}`); }
+  }
+  if(t.special==='redeemSmall'){ const give=Math.min(p.trauma||0, 1); if(give>0){ await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { trauma:(p.trauma||0)-give }); moneyΔ += 20*give; note.push(`Redeem Trauma x${give} → +${20*give} HP`); } }
+  if(t.special==='redeemAll'){ const all=p.trauma||0; if(all>0){ await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { trauma:0 }); moneyΔ += (Number(t.actionValue)||30)*all; note.push(`Redeem ${all} Tokens → +${(Number(t.actionValue)||30)*all} HP`); } }
+  if(t.special==='roll50'){ const d=1+Math.floor(Math.random()*6); moneyΔ += d*50; note.push(`Roll ${d} → +${d*50} HP`); }
+  if(t.special==='doubleHP'){ moneyΔ += (p.money||0); note.push('Double current HP'); }
+  if(t.special==='traumaPayout'){ if((p.trauma||0)>3){ moneyΔ += 300; note.push('Trauma payout +300 HP'); } else { moneyΔ += 50; note.push('+50 HP'); } }
 
-    // Keyboard shortcut: R to roll
-    window.addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='r'){ if(!$('#pl_roll').disabled || !document.getElementById('rf_roll')?.disabled) rollDice(); } });
+  const newMoney=(p.money|0)+moneyΔ; await update(dbRef(db, `rooms/${currentRoomId}/players/${uid}`), { position:newPos, money:newMoney });
+  setFeed(`${t.label}: ${t.desc||''}`, note.join(' • '));
+  if(moneyΔ!==0) toast(`${(moneyΔ>0?'+':'')}${moneyΔ} HP`);
+}
 
-    // Tabs
-    function showTab(name){
-      ['maker','library','play'].forEach(id=>{
-        const sec = document.getElementById(id);
-        const btn = document.querySelector(`.tab[data-tab="${id}"]`);
-        if(!sec || !btn) return;
-        if(id===name){ sec.hidden = false; btn.setAttribute('aria-selected','true'); }
-        else { sec.hidden = true; btn.removeAttribute('aria-selected'); }
-      });
-    }
-    $$('.tab').forEach(btn=> btn.addEventListener('click', ()=> showTab(btn.dataset.tab)));
-    document.addEventListener('DOMContentLoaded', ()=>{ try{ renderMaker(); showTab('maker'); }catch(e){} });
-  </script>
+/* Turn flow */
+function orderList(){ return Object.keys(currentRoom.players||{}); }
+function myTurnUid(){ return currentRoom?.turn?.uid||null; }
+async function advanceTurn(){
+  const order=orderList(); if(order.length===0) return;
+  const cur=currentRoom.turn?.idx||0; const next=(cur+1)%order.length;
+  await update(dbRef(db, `rooms/${currentRoomId}/`), { turn:{ uid:order[next], idx:next } });
+}
+async function rollDice(){
+  if(!currentRoomId || !currentRoom?.started) return;
+  const tUid=myTurnUid(); if(tUid!==myUid){ toast('Not your turn'); return; }
+  const me=currentRoom.players?.[myUid]; if(!me) return;
+
+  // skip if burnout/stop
+  if((me.skip||0)>0){
+    await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { skip:(me.skip||0)-1 });
+    toast('Skipping this turn'); await advanceTurn(); return;
+  }
+
+  const roll=1+Math.floor(Math.random()*6);
+  await update(dbRef(db, `rooms/${currentRoomId}/dice`), { last:roll, by:myUid, ts:serverTimestamp() });
+
+  let pos=me.position||0;
+  let dest=(pos + roll); if(dest>=currentGame.tiles.length) dest = currentGame.tiles.length-1; // end cap
+  await update(dbRef(db, `rooms/${currentRoomId}/players/${myUid}`), { position:dest });
+
+  await applyTileEffects(myUid, dest);
+  await advanceTurn();
+}
+
+/* UI wires */
+$('#pl_create').addEventListener('click', createRoom);
+$('#pl_join').addEventListener('click', async()=>{ const rid=$('#pl_roomId').value.trim(); if(!rid){ toast('Enter a room ID'); return; } await joinRoom(rid); isHost=currentRoom?.hostUid===myUid; });
+$('#pl_leave').addEventListener('click', leaveRoom);
+$('#host_start').addEventListener('click', hostStart);
+$('#host_reset').addEventListener('click', hostReset);
+$('#pl_roll').addEventListener('click', rollDice);
+
+/* Full view controls */
+function showRoomFull(show){
+  const rf=$('#room_full'); rf.hidden=!show;
+  document.querySelector('header').style.display=show?'none':'';
+  ['maker','library','play'].forEach(id=>{ const el=document.getElementById(id); if(el) el.hidden=show; });
+  if(show && currentGame){ const b=$('#rf_board'); layoutBoardToFit(b,currentGame.tiles.length); }
+}
+$('#rf_exit')?.addEventListener('click', ()=>showRoomFull(false));
+$('#rf_roll')?.addEventListener('click', rollDice);
+$('#rf_draw_action')?.addEventListener('click', async()=>{ const u=myTurnUid(); if(!u) return; const c=await drawFromDeck(u,'action'); if(c) setFeed('Deck', `Action: ${c.title} ${(c.money?`(${c.money>0?'+':''}${c.money} HP)`:``)}`); });
+$('#rf_draw_life')?.addEventListener('click', async()=>{ const u=myTurnUid(); if(!u) return; const c=await drawFromDeck(u,'life'); if(c) setFeed('Deck', `Life: ${c.title} ${(c.money?`(${c.money>0?'+':''}${c.money} HP)`:``)}`); });
+$('#rf_draw_family')?.addEventListener('click', async()=>{ const u=myTurnUid(); if(!u) return; const c=await drawFromDeck(u,'family'); if(c) setFeed('Deck', `Family: ${c.title} ${(c.money?`(${c.money>0?'+':''}${c.money} HP)`:``)}`); });
+$('#rf_choose_career')?.addEventListener('click', async()=>{ const u=myTurnUid(); if(!u) return; const c=await drawFromDeck(u,'career'); if(c) setFeed('Career', `${c.title} (HP ${c.salary||0})`); });
+
+/* Resize fit */
+window.addEventListener('resize', ()=>{ const b=$('#rf_board'); if(b && !b.hidden && currentGame) layoutBoardToFit(b,currentGame.tiles.length); });
+
+/* Keyboard shortcut */
+window.addEventListener('keydown', e=>{ if(e.key.toLowerCase()==='r'){ if(!$('#pl_roll').disabled || !$('#rf_roll')?.disabled) rollDice(); } });
+
+/* Tabs */
+function showTab(name){
+  ['maker','library','play'].forEach(id=>{
+    const sec=document.getElementById(id); const btn=document.querySelector(`.tab[data-tab="${id}"]`);
+    if(!sec||!btn) return;
+    if(id===name){ sec.hidden=false; btn.setAttribute('aria-selected','true'); } else { sec.hidden=true; btn.removeAttribute('aria-selected'); }
+  });
+}
+$$('.tab').forEach(btn=>btn.addEventListener('click', ()=>showTab(btn.dataset.tab)));
+document.addEventListener('DOMContentLoaded', ()=>{ try{ renderMaker(); loadCoreRulesIntoMaker(); showTab('maker'); }catch(e){} });
+</script>
 </body>
 </html>
