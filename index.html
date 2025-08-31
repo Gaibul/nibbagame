@@ -161,7 +161,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
 <script>
-  // ---- Your Firebase config (as provided) ----
+  // ---- Your Firebase config ----
   const firebaseConfig = {
     apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
     authDomain: "nomercy-8269a.firebaseapp.com",
@@ -173,7 +173,6 @@
     measurementId: "G-1WX7CWBFGF"
   };
 
-  // ===== Boot =====
   (function boot(){
     const app = firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
@@ -183,7 +182,9 @@
     const byId = id => document.getElementById(id);
     const screens = { auth: byId('authScreen'), lobby: byId('lobbyScreen'), game: byId('gameScreen'), finish: byId('finishScreen') };
     const show = k => { Object.values(screens).forEach(s=>s.style.display='none'); screens[k].style.display='block'; };
+    const setAuthError = msg => byId('authError').textContent = msg;
 
+    // Preview avatar
     const avatarInput = byId('playerAvatar');
     const avatarPreview = byId('avatarPreview');
     avatarInput.addEventListener('input', () => { avatarPreview.src = avatarInput.value || '' });
@@ -259,7 +260,6 @@
 
     function shuffle(arr, seed){ let x=(seed>>>0)||123456789; const a=arr.slice(); for(let i=a.length-1;i>0;i--){ x^=x<<13; x^=x>>>17; x^=x<<5; const j=Math.abs(x)%(i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; }
     function codeGen(){ const abc='ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<5;i++) s+=abc[Math.floor(Math.random()*abc.length)]; return s; }
-    function setAuthError(msg){ byId('authError').textContent = msg; }
 
     // ===== Presence =====
     function attachPresence(){
@@ -269,7 +269,6 @@
       pRef.onDisconnect().set(false);
       lastRef.onDisconnect().set(Date.now());
     }
-
     function subscribeRoom(){
       db.ref('rooms/'+curRoom).on('value', snap => {
         roomSnap = snap.val();
@@ -286,7 +285,6 @@
       else if(state==='playing'){ renderGame(); show('game'); }
       else if(state==='finished'){ renderFinish(); show('finish'); }
     }
-
     function renderLobby(){
       byId('lobbyCode').textContent = curRoom;
       byId('hostTag').textContent = roomSnap.players?.[roomSnap.hostUid]?.name || '–';
@@ -300,7 +298,6 @@
       const allReady = players.length>=2 && players.every(p=>p.ready);
       byId('startGameBtn').disabled = !((roomSnap.hostUid===uid) && allReady);
     }
-
     function renderGame(){
       byId('gameCode').textContent = curRoom;
       const turnIdx = roomSnap.currentTurnIndex||0;
@@ -321,7 +318,6 @@
       Object.entries(roomSnap.players||{}).forEach(([id,p])=>{
         const k=String(p.pos||1); (playersByTile[k] ||= []).push(p);
       });
-
       for(let i=1;i<=BOARD_LEN;i++){
         const t = (roomSnap.tiles||{})[i] || {n:i,title:`Tile ${i}`,description:'',action:'NONE',args:{},imgUrl:''};
         const div = document.createElement('div'); div.className='tile';
@@ -346,7 +342,6 @@
       byId('drawBtn').disabled = !myTurn;
       byId('endTurnBtn').disabled = !myTurn;
     }
-
     function renderFinish(){
       const box = byId('finalScores');
       const players = Object.values(roomSnap.players||{});
@@ -358,7 +353,6 @@
     byId('toggleReadyBtn').addEventListener('click', async ()=>{
       await db.ref(`rooms/${curRoom}/players/${uid}`).update({ ready: !(roomSnap.players?.[uid]?.ready) });
     });
-
     byId('startGameBtn').addEventListener('click', async ()=>{
       if(roomSnap.hostUid!==uid) return;
       const players = roomSnap.players||{}; const updates = {};
@@ -375,7 +369,6 @@
       updates['log'] = (roomSnap.log||[]).concat({ts:Date.now(), msg:'Game started!'});
       await db.ref('rooms/'+curRoom).update(updates);
     });
-
     byId('leaveRoomBtn').addEventListener('click', async ()=>{
       if(!curRoom) return;
       await db.ref(`rooms/${curRoom}/players/${uid}`).set(null);
@@ -409,14 +402,12 @@
       await db.ref(`rooms/${curRoom}/players/${uid}`).update({ pos: newPos });
       await applyTile(newPos);
     });
-
     byId('drawBtn').addEventListener('click', async ()=>{
       if(roomSnap.state!=='playing') return;
       const order=roomSnap.turnOrder||[];
       if(order[roomSnap.currentTurnIndex||0]!==uid) return;
       await drawCard('action',1);
     });
-
     byId('endTurnBtn').addEventListener('click', async ()=>{
       if(roomSnap.state!=='playing') return;
       const order=roomSnap.turnOrder||[];
@@ -431,7 +422,8 @@
     }
     async function nextTurn(){
       const order=roomSnap.turnOrder||[]; let idx=(roomSnap.currentTurnIndex||0)+1; if(idx>=order.length) idx=0;
-      await db.ref('rooms/'+curRoom').update({ currentTurnIndex: idx, dice: null });
+      // ✅ fixed: no stray quote
+      await db.ref('rooms/' + curRoom).update({ currentTurnIndex: idx, dice: null });
     }
 
     async function applyTile(pos){
@@ -449,7 +441,6 @@
         case 'FINISH': await finishGame(); return;
       }
     }
-
     async function applyPayday(args){
       const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
       const meNow = roomSnap.players[uid];
@@ -462,7 +453,6 @@
       await meRef.update({ hp: (meNow.hp||0) + delta });
       await logMsg(`${meNow.name} Payday: ${delta>=0?'+':''}${delta} HP`);
     }
-
     async function moveBy(steps){
       const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
       const meNow = roomSnap.players[uid];
@@ -537,7 +527,6 @@
         }
       }
     }
-
     async function applyFamily(args){
       const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
       const meNow = roomSnap.players[uid];
@@ -549,7 +538,6 @@
         case 'child': await meRef.update({ hp:(meNow.hp||0)-100 }); await logMsg('New child expenses −100 HP'); break;
       }
     }
-
     async function chooseCareer(){
       const meNow = roomSnap.players[uid];
       const choices = defaultDecks().career;
@@ -557,7 +545,6 @@
       await applyCardEffect(pick.effect);
       await logMsg(`${meNow.name} chooses a career: ${pick.title}`);
     }
-
     async function finishGame(){
       await db.ref('rooms/'+curRoom).update({ state:'finished', log:(roomSnap.log||[]).concat({ts:Date.now(), msg:'Finished! Tally scores.'}) });
     }
@@ -600,7 +587,6 @@
       });
       curRoom = code; attachPresence(); subscribeRoom();
     }
-
     async function joinRoom(){
       const name = byId('playerName').value.trim();
       const avatarUrl = byId('playerAvatar').value.trim();
@@ -615,7 +601,6 @@
       await roomRef.child('turnOrder').transaction(arr=>{ if(!arr) return [uid]; if(!arr.includes(uid)) arr.push(uid); return arr; });
       curRoom = code; attachPresence(); subscribeRoom();
     }
-
     byId('createRoomBtn').addEventListener('click', createRoom);
     byId('joinRoomBtn').addEventListener('click', joinRoom);
 
@@ -628,16 +613,9 @@
 </script>
 
 <!--
-  ==============================
-  Realtime Database Rules (prototype)
-  ==============================
-  Use test rules while prototyping; then lock down.
-
+  Realtime Database rules (prototype — use restrictive rules for prod):
   {
-    "rules": {
-      ".read": true,
-      ".write": true
-    }
+    "rules": { ".read": true, ".write": true }
   }
 -->
 </body>
