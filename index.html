@@ -65,7 +65,7 @@
     #choicePanel{display:none;margin-top:10px}
     #choicePanel .btn{padding:8px 12px}
 
-    /* Popup */
+    /* Popup (shared) */
     .popup{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:50}
     .popup.show{display:flex}
     .popupCard{max-width:560px;width:90%;background:#0f141b;border:1px solid #28303c;border-radius:14px;padding:16px;box-shadow:0 20px 40px rgba(0,0,0,.35)}
@@ -158,6 +158,8 @@
             <div class="pip" data-pos="9"></div>
           </div>
           <button class="btn" id="rollBtn">Roll</button>
+          <button class="btn" id="stealBtn" style="display:none">Attempt Steal</button>
+          <button class="btn" id="moveBtn" style="display:none">Move Normally</button>
           <button class="btn" id="endTurnBtn">End Turn</button>
         </div>
       </div>
@@ -211,14 +213,28 @@
   </div>
 </div>
 
-<!-- Shared Tile Popup -->
+<!-- Shared Popup (tiles, cards, events) -->
 <div id="tilePopup" class="popup">
   <div class="popupCard">
     <div class="small muted" id="popupWho">–</div>
-    <h3 id="popupTitle">Tile</h3>
+    <h3 id="popupTitle">Title</h3>
     <p id="popupDesc">Description</p>
     <div class="row" style="justify-content:flex-end">
       <button class="btn" id="popupClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Steal Target Popup -->
+<div id="stealPopup" class="popup">
+  <div class="popupCard">
+    <h3>Choose a target</h3>
+    <p class="small muted">Attempt Steal: if the steal roll is 5–6 you take 100 HP and give the target +1 Trauma Token. Otherwise you lose 50 HP and gain +1 Trauma Token.</p>
+    <label for="stealTarget">Player</label>
+    <select id="stealTarget"></select>
+    <div class="row" style="justify-content:flex-end;margin-top:8px">
+      <button class="btn" id="stealCancel">Cancel</button>
+      <button class="btn warn" id="stealConfirm">Attempt</button>
     </div>
   </div>
 </div>
@@ -251,15 +267,19 @@
     const screens = { auth: byId('authScreen'), lobby: byId('lobbyScreen'), game: byId('gameScreen'), finish: byId('finishScreen') };
     const show = k => { Object.values(screens).forEach(s=>s.style.display='none'); screens[k].style.display='block'; };
     const setAuthError = msg => byId('authError').textContent = msg;
+    const cap = s => s ? s.charAt(0).toUpperCase()+s.slice(1) : '';
 
     // Preview avatar
     const avatarInput = byId('playerAvatar');
     const avatarPreview = byId('avatarPreview');
     avatarInput.addEventListener('input', () => { avatarPreview.src = avatarInput.value || '' });
 
-    // Popup
+    // Popups
     const popup = byId('tilePopup'), popupTitle = byId('popupTitle'), popupDesc = byId('popupDesc'), popupWho = byId('popupWho');
     byId('popupClose').onclick = () => popup.classList.remove('show');
+
+    const stealPopup = byId('stealPopup'), stealTarget = byId('stealTarget');
+    byId('stealCancel').onclick = () => stealPopup.classList.remove('show');
 
     // Dice helpers
     const diceEl = byId('dice');
@@ -374,12 +394,20 @@
       else if(state==='playing'){ renderGame(); show('game'); }
       else if(state==='finished'){ renderFinish(); show('finish'); }
 
-      // Shared popup
+      // Shared popup (tile, card, event)
       const pop = roomSnap.popup;
       if(pop && pop.ts){
-        popupTitle.textContent = pop.title || 'Tile';
+        popupTitle.textContent = pop.title || (pop.kind==='card' ? 'Card' : 'Event');
         popupDesc.textContent = pop.description || '';
-        popupWho.textContent = `${pop.player||'Someone'} landed on #${pop.n}`;
+        if(pop.kind==='card'){
+          popupWho.textContent = `${pop.player||'Someone'} drew a ${cap(pop.deck)} card`;
+        } else if(pop.kind==='tile'){
+          popupWho.textContent = `${pop.player||'Someone'} landed on #${pop.n}`;
+        } else if(pop.kind==='event'){
+          popupWho.textContent = pop.player || '–';
+        } else {
+          popupWho.textContent = pop.player || '–';
+        }
         popup.classList.add('show');
       }
 
@@ -399,7 +427,7 @@
         el.innerHTML = `<img src="${p.avatarUrl||''}" alt="avatar">
                         <div>${p.name||'?'}</div>
                         <div class="badge">HP ${p.hp ?? 0}</div>
-                        <div class="muted small">Trauma ${p.tokens ?? 0}</div>
+                        <div class="muted small">Trauma Tokens ${p.tokens ?? 0}</div>
                         <div class="muted small">${p.ready?'Ready ✅':'Not ready'}</div>`;
         list.appendChild(el);
       });
@@ -421,7 +449,7 @@
         card.innerHTML = `<img src="${p.avatarUrl||''}">
                           <div>${p.name||'?'}</div>
                           <div class="badge">HP ${p.hp ?? 0}</div>
-                          <div class="muted small">Trauma ${p.tokens ?? 0}</div>
+                          <div class="muted small">Trauma Tokens ${p.tokens ?? 0}</div>
                           <div class="muted small">${id===turnUid?'(turn)':''}</div>`;
         hud.appendChild(card);
       });
@@ -439,17 +467,18 @@
         div.innerHTML += `<div class="num">#${i}</div><h4>${t.title||''}</h4><p>${t.description||''}</p><div class="action">${t.action}</div>`;
         const tokWrap = document.createElement('div'); tokWrap.className='tokens';
         (playersByTile[String(i)]||[]).forEach(p=>{
-          const tok=document.createElement('div'); tok.className='token'; tok.title=`${p.name} — HP ${p.hp ?? 0} — Trauma ${p.tokens ?? 0}`;
+          const tok=document.createElement('div'); tok.className='token'; tok.title=`${p.name} — HP ${p.hp ?? 0} — Trauma Tokens ${p.tokens ?? 0}`;
           tok.innerHTML=`<img src="${p.avatarUrl||''}">`; tokWrap.appendChild(tok);
         });
         div.appendChild(tokWrap); board.appendChild(div);
       }
 
-      // Piles / buttons
+      // Piles / buttons & gating
       const pending = roomSnap.pendingDraw || null;
       const meTurn = (order[turnIdx]===uid);
       const rolled = !!(roomSnap.turn && roomSnap.turn.rolled);
       const crisis = (roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid) ? true : false;
+      const stealOffer = (roomSnap.stealOffer && roomSnap.stealOffer.uid===uid) ? roomSnap.stealOffer : null;
 
       function setPileState(kind, active, text){
         const el = byId(`pile-${kind}`), sub = byId(`pile-${kind}-sub`);
@@ -463,11 +492,16 @@
 
       if(typeof roomSnap.dice === 'number'){ renderDie(roomSnap.dice); }
 
-      // Roll/End gating
+      // Buttons
       byId('rollBtn').textContent = crisis ? 'Crisis Roll' : 'Roll';
-      // Crisis roll is allowed even if already rolled; otherwise enforce one-roll-per-turn and resolve draws first
-      byId('rollBtn').disabled = !meTurn || (crisis ? false : (rolled || (pending && pending.uid===uid)));
-      byId('endTurnBtn').disabled = !meTurn || (crisis ? true : (!rolled || (pending && pending.uid===uid)));
+      byId('rollBtn').disabled = !meTurn || (crisis ? false : (rolled || (pending && pending.uid===uid) || !!stealOffer));
+      byId('endTurnBtn').disabled = !meTurn || (crisis ? true : (!rolled || (pending && pending.uid===uid) || !!stealOffer));
+
+      // Steal controls visible only during my Steal Offer window
+      byId('stealBtn').style.display = (meTurn && stealOffer) ? 'inline-block' : 'none';
+      byId('moveBtn').style.display  = (meTurn && stealOffer) ? 'inline-block' : 'none';
+      byId('stealBtn').disabled = !meTurn || !stealOffer;
+      byId('moveBtn').disabled  = !meTurn || !stealOffer;
 
       // Path choice panel
       const cp = byId('choicePanel');
@@ -478,20 +512,24 @@
       const box = byId('finalScores');
       const players = Object.values(roomSnap.players||{});
       players.sort((a,b)=> (b.hp||0)-(a.hp||0) || (a.tokens||0)-(b.tokens||0));
-      box.innerHTML = '<div class="sectionTitle">Final Standings</div>' + players.map((p,i)=>`<p>${i+1}. ${p.name} — HP ${p.hp} (Trauma ${p.tokens})</p>`).join('');
+      box.innerHTML = '<div class="sectionTitle">Final Standings</div>' + players.map((p,i)=>`<p>${i+1}. ${p.name} — HP ${p.hp} (Trauma Tokens ${p.tokens})</p>`).join('');
     }
 
     // ===== Helpers for HP/Trauma/Burnout/Crisis =====
-    async function addHp(delta){
-      const meNow = roomSnap.players[uid] || {};
-      await db.ref(`rooms/${curRoom}/players/${uid}`).update({ hp:(meNow.hp||0)+delta });
+    async function addHpTo(uidX, delta){
+      const p = roomSnap.players[uidX] || {};
+      await db.ref(`rooms/${curRoom}/players/${uidX}`).update({ hp:(p.hp||0)+delta });
     }
-    async function addTokens(delta){
-      const meNow = roomSnap.players[uid] || {};
-      const newT = Math.max(0, (meNow.tokens||0) + delta);
-      await db.ref(`rooms/${curRoom}/players/${uid}`).update({ tokens:newT });
-      await checkBurnout();
+    async function addHp(delta){ return addHpTo(uid, delta); }
+
+    async function addTokensTo(uidX, delta){
+      const p = roomSnap.players[uidX] || {};
+      const newT = Math.max(0, (p.tokens||0) + delta);
+      await db.ref(`rooms/${curRoom}/players/${uidX}`).update({ tokens:newT });
+      if(uidX===uid) await checkBurnout(); // only current player triggers crisis checks
     }
+    async function addTokens(delta){ return addTokensTo(uid, delta); }
+
     async function checkBurnout(){
       const me = (roomSnap.players||{})[uid] || {};
       const tokens = me.tokens||0;
@@ -506,7 +544,7 @@
       // Crisis trigger at 6+
       if(tokens >= 6 && !(roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid)){
         await db.ref('rooms/'+curRoom+'/pendingCrisis').set({ uid });
-        await logMsg(`${me.name} must take a Crisis Roll (rolling a 6 triggers a Crisis Reset).`);
+        await logMsg(`${me.name} must take a Crisis Roll (rolling a 1 or 2 triggers a Crisis Reset).`);
       }
     }
     async function crisisReset(){
@@ -554,6 +592,7 @@
       updates['pendingDraw'] = null;
       updates['pendingChoice'] = null;
       updates['pendingCrisis'] = null;
+      updates['stealOffer'] = null;
       updates['turn'] = { rolled: false };
       updates['popup'] = null;
       updates['log'] = (roomSnap.log||[]).concat({ts:Date.now(), msg:'Game started!'});
@@ -587,7 +626,7 @@
 
       const isCrisis = !!(roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid);
 
-      // Crisis Roll path: allowed even after normal roll and regardless of pending draws
+      // Crisis Roll path (reset on 1 or 2)
       if(isCrisis){
         diceEl.classList.add('roll');
         const roll = 1 + Math.floor(Math.random()*6);
@@ -595,14 +634,13 @@
           diceEl.classList.remove('roll');
           renderDie(roll);
           await db.ref(`rooms/${curRoom}`).update({ dice: roll, pendingCrisis: null });
-          if(roll===6){ await crisisReset(); }
-          // after crisis roll, keep normal gating: end turn enabled if already rolled
+          if(roll===1 || roll===2){ await crisisReset(); }
         }, 300);
         return;
       }
 
-      // Normal roll path — block if pending draw or already rolled
-      if((roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) || (roomSnap.turn && roomSnap.turn.rolled)) return;
+      // Normal roll path — block if pending draw or already rolled or steal offer pending
+      if((roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) || (roomSnap.turn && roomSnap.turn.rolled) || roomSnap.stealOffer) return;
 
       // if skipping (STOP effect), auto end turn
       const me = roomSnap.players?.[uid]; if((me?.skip||0)>0){
@@ -623,10 +661,90 @@
         renderDie(roll);
         await db.ref(`rooms/${curRoom}`).update({ dice: roll });
 
+        // If roll is 5 or 6 → offer steal instead of moving
+        if(roll===5 || roll===6){
+          await db.ref('rooms/'+curRoom+'/stealOffer').set({ uid, roll });
+          await logMsg(`${me.name} rolled a ${roll}: can attempt a Steal or Move Normally.`);
+          return; // wait for player's choice
+        }
+
+        // Otherwise move immediately
         const meNow = roomSnap.players?.[uid];
         const newPos = Math.min(BOARD_LEN, (meNow.pos||1)+roll);
         await db.ref(`rooms/${curRoom}/players/${uid}`).update({ pos: newPos });
-        await processTile(newPos);  // <-- fixed: process tile with GOTO handling
+        await processTile(newPos);  // GOTO → process destination and show correct popup
+      }, 300);
+    });
+
+    // Move Normally after a Steal Offer
+    byId('moveBtn').addEventListener('click', async ()=>{
+      const order=roomSnap.turnOrder||[]; const turnUid=order[roomSnap.currentTurnIndex||0];
+      if(turnUid!==uid) return;
+      const offer = roomSnap.stealOffer;
+      if(!offer || offer.uid!==uid) return;
+
+      const meNow = roomSnap.players?.[uid];
+      const roll = roomSnap.dice || 0;
+      const newPos = Math.min(BOARD_LEN, (meNow.pos||1)+roll);
+      await db.ref(`rooms/${curRoom}/players/${uid}`).update({ pos: newPos });
+      await db.ref(`rooms/${curRoom}`).update({ stealOffer: null });
+      await processTile(newPos);
+    });
+
+    // Attempt Steal
+    byId('stealBtn').addEventListener('click', async ()=>{
+      const order=roomSnap.turnOrder||[]; const turnUid=order[roomSnap.currentTurnIndex||0];
+      if(turnUid!==uid) return;
+      const offer = roomSnap.stealOffer;
+      if(!offer || offer.uid!==uid) return;
+
+      // populate target list (exclude me)
+      stealTarget.innerHTML='';
+      Object.entries(roomSnap.players||{}).forEach(([pid,p])=>{
+        if(pid===uid) return;
+        const opt=document.createElement('option');
+        opt.value=pid; opt.textContent = `${p.name} — HP ${p.hp ?? 0} · Trauma ${p.tokens ?? 0}`;
+        stealTarget.appendChild(opt);
+      });
+      if(!stealTarget.children.length){ alert('No valid targets.'); return; }
+      stealPopup.classList.add('show');
+    });
+
+    byId('stealConfirm').addEventListener('click', async ()=>{
+      const targetUid = stealTarget.value;
+      if(!targetUid) return;
+      stealPopup.classList.remove('show');
+
+      // Do the steal roll
+      diceEl.classList.add('roll');
+      const sRoll = 1 + Math.floor(Math.random()*6);
+      setTimeout(async ()=>{
+        diceEl.classList.remove('roll');
+        renderDie(sRoll);
+
+        const me = roomSnap.players[uid];
+        const target = roomSnap.players[targetUid];
+
+        if(sRoll===5 || sRoll===6){
+          // success: steal 100 from target, +1 trauma to target
+          const stealAmt = 100;
+          await addHpTo(targetUid, -stealAmt);
+          await addHp(stealAmt);
+          await addTokensTo(targetUid, 1);
+
+          await showPopupForAll({ kind:'event', title:'Steal Success', description:`${me.name} stole 100 HP from ${target.name}. ${target.name} gains +1 Trauma Token.`, player:`Steal Event` });
+          await logMsg(`${me.name} steals 100 HP from ${target.name} (success). ${target.name} gets +1 Trauma Token.`);
+        } else {
+          // fail: -50 HP to thief, +1 trauma to thief
+          await addHp(-50);
+          await addTokens(1);
+
+          await showPopupForAll({ kind:'event', title:'Steal Failed', description:`${me.name} failed the steal and loses 50 HP and gains +1 Trauma Token.`, player:`Steal Event` });
+          await logMsg(`${me.name} fails the steal: -50 HP and +1 Trauma Token.`);
+        }
+
+        // Consume the turn (no movement) and clear offer
+        await db.ref('rooms/'+curRoom).update({ stealOffer: null });
       }, 300);
     });
 
@@ -634,10 +752,11 @@
       if(roomSnap.state!=='playing') return;
       const order=roomSnap.turnOrder||[];
       if(order[roomSnap.currentTurnIndex||0]!==uid) return;
-      // cannot end if pending draw, choice, or crisis
+      // cannot end if pending draw, choice, crisis, or steal offer unresolved
       if((roomSnap.pendingDraw && roomSnap.pendingDraw.uid===uid) ||
          (roomSnap.pendingChoice && roomSnap.pendingChoice.uid===uid) ||
-         (roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid)) return;
+         (roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid) ||
+         (roomSnap.stealOffer && roomSnap.stealOffer.uid===uid)) return;
       await nextTurn();
     });
 
@@ -655,7 +774,6 @@
         await db.ref('rooms/'+curRoom+'/pendingDraw').update({ count: left });
       } else {
         await db.ref('rooms/'+curRoom).update({ pendingDraw: null });
-        // After finishing a draw, re-check crisis trigger in case tokens changed
         await checkBurnout();
       }
     }
@@ -690,35 +808,33 @@
         turn: { rolled: false },
         pendingDraw: null,
         pendingChoice: null,
-        pendingCrisis: null
+        pendingCrisis: null,
+        stealOffer: null
       });
     }
 
-    async function showPopupForAll(t, playerName){
-      await db.ref('rooms/'+curRoom+'/popup').set({
-        n: t.n, title: t.title, description: t.description, player: playerName, ts: Date.now()
-      });
+    // Unified popup setter
+    async function showPopupForAll(obj){
+      await db.ref('rooms/'+curRoom+'/popup').set({ ...obj, ts: Date.now() });
     }
 
-    // ---- Tile processing (fixes GOTO → show/apply destination) ----
+    // ---- Tile processing (GOTO → show/apply destination) ----
     async function processTile(pos, depth=0){
       if(depth>5) return; // safety
       const meNow = roomSnap.players[uid];
       const t = (roomSnap.tiles||{})[pos]; if(!t) return;
 
-      // If tile adds tokens/HP as side args tied to movement (like GOTO 15 with tokens), handle after main
       if(t.action==='GOTO'){
-        // apply side args BEFORE moving if they are intended to fire on current tile
-        await applyPostArgs(t.args||{});
-        // move then process destination and show that popup (so UI matches pos)
+        await applyPostArgs(t.args||{}); // e.g., tokensAdd on 22 before moving back
         const dest = t.args?.tile || pos;
         await moveTo(dest);
         await processTile(dest, depth+1);
         return;
       }
 
-      // Normal tile: show popup for this tile
-      await showPopupForAll(t, meNow.name);
+      // Show tile popup to everyone
+      await showPopupForAll({ kind:'tile', n:t.n, title:t.title, description:t.description, player: meNow.name });
+
       await logMsg(`${meNow.name} lands on #${pos}: ${t.title}`);
 
       switch(t.action){
@@ -815,7 +931,12 @@
       await discRef.set(discArr);
 
       const card = findCard(deck, cardId);
-      await logMsg(`${roomSnap.players[uid].name} draws from ${deck}: ${card.title}`);
+
+      // card popup to everyone (also covers career)
+      const meName = roomSnap.players[uid]?.name || 'Someone';
+      await showPopupForAll({ kind:'card', deck, title: card.title, description: card.text, player: meName });
+
+      await logMsg(`${meName} draws from ${deck}: ${card.title}`);
       await applyCardEffect(card.effect||{});
     }
     function findCard(deck,id){ const d=defaultDecks(); return (d[deck]||[]).find(c=>c.id===id)||{id,title:'Unknown',text:'',effect:{}}; }
@@ -843,6 +964,7 @@
         case 'career': {
           const career = { perTurn: effect.perTurn||0 };
           await meRef.update({ career });
+          // career popup already shown by draw/choose paths
           break;
         }
         case 'careerDice': {
@@ -877,11 +999,13 @@
       if(args.tokensAdd){ await addTokens(args.tokensAdd); }
     }
     async function chooseCareer(){
-      const meNow = roomSnap.players[uid];
+      const meName = roomSnap.players[uid]?.name || 'Someone';
       const choices = defaultDecks().career;
       const pick = choices[Math.floor(Math.random()*choices.length)];
+      // Show popup for chosen career to all (title + description)
+      await showPopupForAll({ kind:'card', deck:'career', title: pick.title, description: pick.text, player: meName });
       await applyCardEffect(pick.effect);
-      await logMsg(`${meNow.name} chooses a career: ${pick.title}`);
+      await logMsg(`${meName} chooses a career: ${pick.title}`);
     }
     async function finishGame(){
       await db.ref('rooms/'+curRoom).update({ state:'finished', log:(roomSnap.log||[]).concat({ts:Date.now(), msg:'Finished! Tally scores.'}) });
@@ -929,6 +1053,7 @@
           pendingDraw: null,
           pendingChoice: null,
           pendingCrisis: null,
+          stealOffer: null,
           turn: { rolled: false },
           popup: null,
           log: [ {ts: Date.now(), msg: `${name} created room ${code}`} ]
