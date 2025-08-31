@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HustleLife — Aadarsh in Paris</title>
+  <title>HustleLife — Black can crack</title>
   <style>
     :root { --bg:#0b0d10; --panel:#12151a; --ink:#e6e9ef; --muted:#9aa4b2; --brand:#6ee7ff; --accent:#a78bfa; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; }
     *{box-sizing:border-box}
@@ -63,18 +63,6 @@
     .popupCard{max-width:560px;width:90%;background:#0f141b;border:1px solid #28303c;border-radius:14px;padding:16px;box-shadow:0 20px 40px rgba(0,0,0,.35)}
     .popupCard h3{margin:0 0 6px 0}
     .popupCard p{margin:0 0 10px 0;color:#b6c2d1}
-
-    /* FULL tile image inside the popup */
-    .popupImg{
-      width:100%;
-      aspect-ratio:16/9;
-      background-size:cover;
-      background-position:center;
-      border-radius:10px;
-      border:1px solid #28303c;
-      margin:10px 0;
-      display:none; /* only for tile popups with an image */
-    }
   </style>
 </head>
 <body>
@@ -209,8 +197,6 @@
   <div class="popupCard">
     <div class="small muted" id="popupWho">–</div>
     <h3 id="popupTitle">Title</h3>
-    <!-- FULL tile image -->
-    <div id="popupImage" class="popupImg"></div>
     <p id="popupDesc">Description</p>
     <div class="row" style="justify-content:flex-end">
       <button class="btn" id="popupClose">Close</button>
@@ -232,15 +218,12 @@
   </div>
 </div>
 
-<!-- Firebase v10 modular (no bundler) -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import {
-    getDatabase, ref, onValue, get, set, update, runTransaction,
-    onDisconnect
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+<!-- Firebase compat -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
+<script>
   // ---- Your Firebase config ----
   const firebaseConfig = {
     apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
@@ -254,9 +237,9 @@
   };
 
   (function boot(){
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db   = getDatabase(app);
+    const app = firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db   = firebase.database();
 
     // ===== UI helpers =====
     const byId = id => document.getElementById(id);
@@ -271,11 +254,7 @@
     avatarInput.addEventListener('input', () => { avatarPreview.src = avatarInput.value || '' });
 
     // Popups
-    const popup = byId('tilePopup'),
-          popupTitle = byId('popupTitle'),
-          popupDesc = byId('popupDesc'),
-          popupWho = byId('popupWho'),
-          popupImg = byId('popupImage');
+    const popup = byId('tilePopup'), popupTitle = byId('popupTitle'), popupDesc = byId('popupDesc'), popupWho = byId('popupWho');
     byId('popupClose').onclick = () => popup.classList.remove('show');
 
     const stealPopup = byId('stealPopup'), stealTarget = byId('stealTarget');
@@ -357,11 +336,11 @@
       40:g("16eLdh96fLa0Y8QTqSpKJ-UexvkrQasH7"),
     };
 
-    // ===== Tiles =====
+    // ===== Tiles (with embedded images) =====
     function defaultTiles(){
-      const t=[];
+      const t=[]; 
       const push=(n,title,description,action,args={})=>t.push({n,title,description,action,args,imgUrl: tileImgs[n] || ''});
-      /* (same content as before; kept for completeness) */
+      // Childhood (1–10)
       push(1,'Start: Born in the Hood','You enter the world in a underfunded hospital. Nurses say, "Another fighter." Grab your diaper bag and hustle.','PAYDAY',{amount:50});
       push(2,'First Steps','Toddling around the projects, dodging broken glass. Mom says, "Stay inside, baby."','NONE');
       push(3,'Dad Left','Your Black dad bounced for cigarettes and never came back. Classic absentee trope—now it\'s single-mom grind time.','DRAW',{deck:'life',count:1});
@@ -372,6 +351,7 @@
       push(8,'Corner Store Run','Sent to get milk—store owner follows you around like you\'re a thief.','NONE',{hpIfLt:{lt:50,delta:-10}});
       push(9,'Block Friends','Made your first crew—playing hoops till dark. Bonds for life... or trouble.','FAMILY',{type:'mentor'});
       push(10,'End of Innocence','Saw your first drive-by. Hood life\'s getting real.','GOTO',{tile:11});
+      // Teen Years (11–20)
       push(11,'High School Start','Freshman year in overcrowded school. Books outdated, dreams big.','CHOOSE_CAREER',{preview:true});
       push(12,'Police Brutality Intro','Stopped for "fitting the description." Roughed up, no charges—trauma lingers.','JUMP',{steps:-3, tokensAdd:2});
       push(13,'Racism in Class','Classmate drops the N-word "as a joke." Teacher laughs it off. Systemic BS.','DRAW',{deck:'life',count:1});
@@ -382,6 +362,7 @@
       push(18,'Watermelon Stereotype Mock','Friends roast you for loving watermelon. "Black card revoked?" Nah, own it.','JUMP',{steps:1});
       push(19,'Activism Spark','Join school protest against racism. Eyes opened.','DRAW',{deck:'action',count:1});
       push(20,'Teen Graduation','Cap and gown, but half your class dropped out. Bitter-sweet.','PAYDAY',{amount:200});
+      // Adulthood Grind (21–30)
       push(21,'First Real Job','Entry-level gig—boss micro-manages \'cause you\'re Black.','CHOOSE_CAREER',{lock:true});
       push(22,'Police Brutality Strike','Traffic stop gone wrong—you got beaten, viral video optional.','GOTO',{tile:15, tokensAdd:3});
       push(23,'Racism at Work','Denied promotion: "Not a culture fit." Code for bias.','STOP',{turns:1, hpDelta:-100});
@@ -392,11 +373,13 @@
       push(28,'Watermelon Festival','Community event: You ate lots of watermelon, reclaiming the stereotype.','JUMP',{steps:3});
       push(29,'Systemic Setback','Evicted due to gentrification. Hood changing.','JUMP',{steps:-5});
       push(30,'Grind Milestone','Bought your first ride—freedom on wheels.','DRAW',{deck:'action',count:1});
+      // Family Legacy (31–35)
       push(31,'Marriage Milestone','Tied the knot—hoping to break cycles.','FAMILY',{type:'partner', spouseBonusPerPayday:20});
       push(32,'Kid Arrives','Bundle of joy, but bills stack up.','FAMILY',{type:'child', hpDelta:-100});
       push(33,'Family Racism Hit','In-laws drop racist vibes at dinner.','DRAW',{deck:'life',count:1});
       push(34,'Police Family Scare','Cops harass your teen kid—brutality cycle.','STOP',{turns:1, tokensAdd:1});
       push(35,'Legacy Reflection','Teaching kids about dad leaving, violence, stereotypes—breaking chains.','NONE',{redeemAllTokensMultiplier:true});
+      // Boss Status (36–40)
       push(36,'Big Break','Viral success or business boom. Made it?','PAYDAY',{multiplier:2});
       push(37,'Final Racism Hurdle','Even at the top, "imposter syndrome" from years of bias.','DRAW',{deck:'action',count:1});
       push(38,'Police Flashback','Old brutality case payout—justice?','NONE',{payIfTokensGT:{gt:3, amount:300}});
@@ -408,14 +391,14 @@
     // ===== Presence =====
     function codeGen(){ const abc='ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<5;i++) s+=abc[Math.floor(Math.random()*abc.length)]; return s; }
     function attachPresence(){
-      const pRef = ref(db, `rooms/${curRoom}/players/${uid}/connected`);
-      const lastRef = ref(db, `rooms/${curRoom}/players/${uid}/lastSeen`);
-      set(pRef, true); set(lastRef, Date.now());
-      onDisconnect(pRef).set(false);
-      onDisconnect(lastRef).set(Date.now());
+      const pRef = db.ref(`rooms/${curRoom}/players/${uid}/connected`);
+      const lastRef = db.ref(`rooms/${curRoom}/players/${uid}/lastSeen`);
+      pRef.set(true); lastRef.set(Date.now());
+      pRef.onDisconnect().set(false);
+      lastRef.onDisconnect().set(Date.now());
     }
     function subscribeRoom(){
-      onValue(ref(db, 'rooms/'+curRoom), snap => {
+      db.ref('rooms/'+curRoom).on('value', snap => {
         roomSnap = snap.val();
         if(!roomSnap){ show('auth'); return; }
         render();
@@ -434,29 +417,14 @@
       if(pop && pop.ts){
         popupTitle.textContent = pop.title || (pop.kind==='card' ? 'Card' : 'Event');
         popupDesc.textContent = pop.description || '';
-
         if(pop.kind==='card'){
           popupWho.textContent = `${pop.player||'Someone'} drew a ${cap(pop.deck)} card`;
-          if (popupImg) popupImg.style.display = 'none';
         } else if(pop.kind==='tile'){
           popupWho.textContent = `${pop.player||'Someone'} landed on #${pop.n}`;
-          // show the tile's full image if present
-          const t = (roomSnap.tiles || {})[pop.n];
-          const url = t && t.imgUrl ? t.imgUrl : '';
-          if (popupImg) {
-            if (url) {
-              popupImg.style.backgroundImage = `url('${url}')`;
-              popupImg.style.display = 'block';
-            } else {
-              popupImg.style.display = 'none';
-            }
-          }
         } else if(pop.kind==='event'){
           popupWho.textContent = pop.player || '–';
-          if (popupImg) popupImg.style.display = 'none';
         } else {
           popupWho.textContent = pop.player || '–';
-          if (popupImg) popupImg.style.display = 'none';
         }
         popup.classList.add('show');
       }
@@ -467,7 +435,6 @@
         logBox.scrollTop = logBox.scrollHeight;
       }
     }
-
     function renderLobby(){
       byId('lobbyCode').textContent = curRoom;
       byId('hostTag').textContent = roomSnap.players?.[roomSnap.hostUid]?.name || '–';
@@ -486,6 +453,7 @@
       byId('startGameBtn').disabled = !((roomSnap.hostUid===uid) && allReady);
     }
 
+    // ===== HUD/Game render =====
     function renderGame(){
       byId('gameCode').textContent = curRoom;
       const turnIdx = roomSnap.currentTurnIndex||0;
@@ -551,12 +519,31 @@
       byId('rollBtn').disabled = !meTurn || (crisis ? false : (rolled || pending || hasChoice || hasSkip));
       byId('endTurnBtn').disabled = !meTurn || (crisis ? true : (!rolled || pending || hasChoice));
 
-      // Host watchdog for disconnected/auto-skip players
+      const choicePanelEl = document.getElementById('choicePanel');
+      if (choicePanelEl) {
+        choicePanelEl.style.display = (hasChoice && meTurn) ? 'block' : 'none';
+      }
+
       if(roomSnap.state==='playing' && roomSnap.hostUid===uid){
         const tuid = turnUid;
         const p = roomSnap.players?.[tuid];
         if(!tuid || !p || p.connected===false){
           nextTurn(true);
+        }
+        const pc = roomSnap.pendingChoice;
+        if (pc) {
+          const orderArr = roomSnap.turnOrder || [];
+          const curIdx = roomSnap.currentTurnIndex || 0;
+          const curUid = orderArr[curIdx];
+          if (curUid !== pc.uid) {
+            const wantIdx = orderArr.indexOf(pc.uid);
+            if (wantIdx !== -1) {
+              firebase.database().ref('rooms/'+curRoom).update({
+                currentTurnIndex: wantIdx,
+                turn: { rolled: false }
+              });
+            }
+          }
         }
       }
     }
@@ -568,17 +555,17 @@
       box.innerHTML = '<div class="sectionTitle">Final Standings</div>' + players.map((p,i)=>`<p>${i+1}. ${p.name} — HP ${p.hp} (Trauma Tokens ${p.tokens})</p>`).join('');
     }
 
-    // ===== Helpers =====
+    // ===== Helpers for HP/Trauma/Burnout/Crisis =====
     async function addHpTo(uidX, delta){
       const p = roomSnap.players[uidX] || {};
-      await update(ref(db, `rooms/${curRoom}/players/${uidX}`), { hp:(p.hp||0)+delta });
+      await db.ref(`rooms/${curRoom}/players/${uidX}`).update({ hp:(p.hp||0)+delta });
     }
     async function addHp(delta){ return addHpTo(uid, delta); }
 
     async function addTokensTo(uidX, delta){
       const p = roomSnap.players[uidX] || {};
       const newT = Math.max(0, (p.tokens||0) + delta);
-      await update(ref(db, `rooms/${curRoom}/players/${uidX}`), { tokens:newT });
+      await db.ref(`rooms/${curRoom}/players/${uidX}`).update({ tokens:newT });
       if(uidX===uid) await checkBurnout();
     }
     async function addTokens(delta){ return addTokensTo(uid, delta); }
@@ -589,19 +576,19 @@
       const burned = !!me.burnedOut;
       if(tokens >= 5 && !burned){
         const skip = Math.max(0,(me.skip||0)+1);
-        await update(ref(db, `rooms/${curRoom}/players/${uid}`), { skip, burnedOut:true });
+        await db.ref(`rooms/${curRoom}/players/${uid}`).update({ skip, burnedOut:true });
         await logMsg(`${me.name} hits Burnout (5+ Trauma Tokens): loses next turn.`);
       } else if(tokens < 5 && burned){
-        await update(ref(db, `rooms/${curRoom}/players/${uid}`), { burnedOut:false });
+        await db.ref(`rooms/${curRoom}/players/${uid}`).update({ burnedOut:false });
       }
       if(tokens >= 6 && !(roomSnap.pendingCrisis && roomSnap.pendingCrisis.uid===uid)){
-        await set(ref(db, 'rooms/'+curRoom+'/pendingCrisis'), { uid });
+        await db.ref('rooms/'+curRoom+'/pendingCrisis').set({ uid });
         await logMsg(`${me.name} must take a Crisis Roll (rolling a 1 or 2 triggers a Crisis Reset).`);
       }
     }
     async function crisisReset(){
       const me = roomSnap.players[uid];
-      await update(ref(db, `rooms/${curRoom}/players/${uid}`), {
+      await db.ref(`rooms/${curRoom}/players/${uid}`).update({
         hp: 0, pos: 1, tokens: 0, skip: (me.skip||0)+1
       });
       await logMsg(`${me.name} undergoes a Crisis Reset: back to start, HP 0, Trauma cleared, skip next turn.`);
@@ -609,7 +596,7 @@
 
     // ===== Lobby actions =====
     byId('toggleReadyBtn').addEventListener('click', async ()=>{
-      await update(ref(db, `rooms/${curRoom}/players/${uid}`), { ready: !(roomSnap.players?.[uid]?.ready) });
+      await db.ref(`rooms/${curRoom}/players/${uid}`).update({ ready: !(roomSnap.players?.[uid]?.ready) });
     });
     byId('startGameBtn').addEventListener('click', async ()=>{
       if(roomSnap.hostUid!==uid) return;
@@ -647,12 +634,13 @@
       updates['turn'] = { rolled: false };
       updates['popup'] = null;
       updates['log'] = (roomSnap.log||[]).concat({ts:Date.now(), msg:'Game started!'});
-      await update(ref(db, 'rooms/'+curRoom), updates);
+      await db.ref('rooms/'+curRoom).update(updates);
     });
     byId('leaveRoomBtn').addEventListener('click', async ()=>{
       if(!curRoom) return;
-      await set(ref(db, 'rooms/'+curRoom+'/players/'+uid), null);
-      await runTransaction(ref(db, 'rooms/'+curRoom+'/turnOrder'), arr => (arr||[]).filter(x => x !== uid));
+      const rref = db.ref('rooms/'+curRoom);
+      await rref.child('players/'+uid).set(null);
+      await rref.child('turnOrder').transaction(arr => (arr||[]).filter(x => x !== uid));
       curRoom=null; roomSnap=null; show('auth');
     });
 
@@ -670,14 +658,14 @@
         setTimeout(async ()=>{
           diceEl.classList.remove('roll');
           renderDie(roll);
-          await update(ref(db, `rooms/${curRoom}`), { dice: roll, pendingCrisis: null });
+          await db.ref(`rooms/${curRoom}`).update({ dice: roll, pendingCrisis: null });
           if(roll===1 || roll===2){ await crisisReset(); }
         }, 300);
         return;
       }
 
       const me = roomSnap.players?.[uid]; if((me?.skip||0)>0){
-        await update(ref(db, `rooms/${curRoom}/players/${uid}`), { skip:(me.skip-1) });
+        await db.ref(`rooms/${curRoom}/players/${uid}`).update({ skip:(me.skip-1) });
         await logMsg(`${me.name} skips a turn.`);
         await nextTurn();
         return;
@@ -687,7 +675,7 @@
          (roomSnap.pendingChoice && roomSnap.pendingChoice.uid===uid) ||
          (roomSnap.turn && roomSnap.turn.rolled)) return;
 
-      await set(ref(db, `rooms/${curRoom}/turn`), { rolled: true });
+      await db.ref(`rooms/${curRoom}/turn`).set({ rolled: true });
 
       diceEl.classList.add('roll');
       const roll = 1 + Math.floor(Math.random()*6);
@@ -695,11 +683,11 @@
       setTimeout(async ()=>{
         diceEl.classList.remove('roll');
         renderDie(roll);
-        await update(ref(db, `rooms/${curRoom}`), { dice: roll });
+        await db.ref(`rooms/${curRoom}`).update({ dice: roll });
 
         const meNow = roomSnap.players?.[uid];
         const newPos = Math.min(BOARD_LEN, (meNow.pos||1)+roll);
-        await update(ref(db, `rooms/${curRoom}/players/${uid}`), { pos: newPos });
+        await db.ref(`rooms/${curRoom}/players/${uid}`).update({ pos: newPos });
         await processTile(newPos);
       }, 300);
     });
@@ -732,8 +720,9 @@
       if(!targetUid) return;
       stealPopup.classList.remove('show');
 
-      await set(ref(db, `rooms/${curRoom}/turn`), { rolled: true });
+      await db.ref(`rooms/${curRoom}/turn`).set({ rolled: true });
 
+      const diceEl = byId('dice');
       diceEl.classList.add('roll');
       const sRoll = 1 + Math.floor(Math.random()*6);
       setTimeout(async ()=>{
@@ -780,41 +769,41 @@
       await drawCard(deck, 1);
       const left = (pending.count||1) - 1;
       if(left>0){
-        await update(ref(db, 'rooms/'+curRoom+'/pendingDraw'), { count: left });
+        await db.ref('rooms/'+curRoom+'/pendingDraw').update({ count: left });
       } else {
-        await update(ref(db, 'rooms/'+curRoom'), { pendingDraw: null });
+        await db.ref('rooms/'+curRoom).update({ pendingDraw: null });
         await checkBurnout();
       }
     }
 
-    // Path choice (Tile 15)
+    // Path choice buttons (Tile 15)
     byId('collegeBtn').addEventListener('click', async ()=>{
       const pc = roomSnap.pendingChoice;
       if(!pc || pc.uid!==uid) return;
       await moveBy(5);
-      await update(ref(db, 'rooms/'+curRoom), { pendingChoice: null });
+      await db.ref('rooms/'+curRoom).update({ pendingChoice: null });
       await processTile((roomSnap.players[uid].pos||1));
     });
     byId('streetBtn').addEventListener('click', async ()=>{
       const pc = roomSnap.pendingChoice;
       if(!pc || pc.uid!==uid) return;
-      await set(ref(db, 'rooms/'+curRoom+'/pendingDraw'), { uid, deck:'action', count:1 });
-      await update(ref(db, 'rooms/'+curRoom), { pendingChoice: null });
+      await db.ref('rooms/'+curRoom+'/pendingDraw').set({ uid, deck:'action', count:1 });
+      await db.ref('rooms/'+curRoom).update({ pendingChoice: null });
       await checkBurnout();
     });
 
     async function logMsg(msg){
       const arr = (roomSnap.log||[]);
       arr.push({ts:Date.now(), msg});
-      await update(ref(db, 'rooms/'+curRoom), { log: arr.slice(-300) });
+      await db.ref('rooms/'+curRoom).update({ log: arr.slice(-300) });
     }
 
-    // ===== TURN ROTATION (supports any number of players) =====
-    async function nextTurn(){
+    // TURN ROTATION with filtering & auto-skip
+    async function nextTurn(hostTriggered=false){
       const players = roomSnap.players || {};
       let order = (roomSnap.turnOrder || []).filter(id => !!players[id]);
       if(order.length === 0){
-        await update(ref(db, 'rooms/' + curRoom), { turnOrder: [], currentTurnIndex: 0 });
+        await db.ref('rooms/' + curRoom).update({ turnOrder: [], currentTurnIndex: 0 });
         return;
       }
       let idx = roomSnap.currentTurnIndex || 0;
@@ -826,11 +815,11 @@
         if(!p) continue;
         if(p.connected === false){ continue; }
         if((p.skip||0) > 0){
-          await update(ref(db, `rooms/${curRoom}/players/${tuid}`), { skip: (p.skip-1) });
+          await db.ref(`rooms/${curRoom}/players/${tuid}`).update({ skip: (p.skip-1) });
           await logMsg(`${p.name} auto-skips a turn.`);
           continue;
         }
-        await update(ref(db, 'rooms/' + curRoom), {
+        await db.ref('rooms/' + curRoom).update({
           turnOrder: order,
           currentTurnIndex: idx,
           dice: null,
@@ -842,7 +831,7 @@
         });
         return;
       }
-      await update(ref(db, 'rooms/' + curRoom), {
+      await db.ref('rooms/' + curRoom).update({
         turnOrder: order,
         currentTurnIndex: idx,
         dice: null,
@@ -856,7 +845,7 @@
 
     // Unified popup setter
     async function showPopupForAll(obj){
-      await set(ref(db, 'rooms/'+curRoom+'/popup'), { ...obj, ts: Date.now() });
+      await db.ref('rooms/'+curRoom+'/popup').set({ ...obj, ts: Date.now() });
     }
 
     // ---- Tile processing ----
@@ -883,7 +872,7 @@
         case 'STOP': await applyStop(t.args?.turns||1); break;
         case 'DRAW': await setPendingDraw(t.args?.deck||'action', t.args?.count||1); break;
         case 'FAMILY': await applyFamily(t.args||{}); break;
-        case 'CHOOSE_CAREER': await chooseCareer(); if(t.args?.branch){ await set(ref(db, 'rooms/'+curRoom+'/pendingChoice'), { uid }); } break;
+        case 'CHOOSE_CAREER': await chooseCareer(); if(t.args?.branch){ await db.ref('rooms/'+curRoom+'/pendingChoice').set({ uid }); } break;
         case 'FINISH': await finishGame(); return;
       }
 
@@ -903,7 +892,7 @@
         if(tokens>0){
           const multPerToken = 0.1;
           const newHp = Math.floor((me.hp||0) * (1 + tokens*multPerToken));
-          await update(ref(db, `rooms/${curRoom}/players/${uid}`), { hp:newHp, tokens:0 });
+          await db.ref(`rooms/${curRoom}/players/${uid}`).update({ hp:newHp, tokens:0 });
           await logMsg(`${me.name} redeems all Trauma Tokens for a multiplier → HP ${newHp}.`);
           await checkBurnout();
         }
@@ -918,11 +907,11 @@
     }
 
     async function setPendingDraw(deck,count){
-      await set(ref(db, 'rooms/'+curRoom+'/pendingDraw'), { uid, deck, count });
+      await db.ref('rooms/'+curRoom+'/pendingDraw').set({ uid, deck, count });
     }
 
     async function applyPayday(args){
-      const meRef = ref(db, `rooms/${curRoom}/players/${uid}`);
+      const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
       const meNow = roomSnap.players[uid];
       let delta = 0;
       if(args.amount) delta += args.amount;
@@ -931,43 +920,43 @@
       if(meNow.career?.perTurn) delta += meNow.career.perTurn;
       if(meNow.career?.dice){ delta += (1 + Math.floor(Math.random()*6)) * (meNow.career.per||20); }
       if(meNow.spouseBonusPerPayday){ delta += meNow.spouseBonusPerPayday; }
-      await update(meRef, { hp: (meNow.hp||0) + delta });
+      await meRef.update({ hp: (meNow.hp||0) + delta });
       await logMsg(`${meNow.name} Payday: ${delta>=0?'+':''}${delta} HP`);
     }
     async function moveBy(steps){
-      const meRef = ref(db, `rooms/${curRoom}/players/${uid}`);
+      const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
       const meNow = roomSnap.players[uid];
       const newPos = Math.max(1, Math.min(BOARD_LEN, (meNow.pos||1)+steps));
-      await update(meRef, { pos: newPos });
+      await meRef.update({ pos: newPos });
       await logMsg(`${meNow.name} ${steps>=0?'jumps':'falls'} ${steps} to ${newPos}`);
     }
     async function moveTo(tile){
-      const meRef = ref(db, `rooms/${curRoom}/players/${uid}`);
+      const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
       const newPos = Math.max(1, Math.min(BOARD_LEN, tile));
-      await update(meRef, { pos: newPos });
+      await meRef.update({ pos: newPos });
     }
     async function applyStop(turns){
-      const meRef = ref(db, `rooms/${curRoom}/players/${uid}`);
+      const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
       const meNow = roomSnap.players[uid];
       const skip = Math.max(0, (meNow.skip||0) + (turns||1));
-      await update(meRef, { skip });
+      await meRef.update({ skip });
       await logMsg(`${meNow.name} pauses for ${turns} turn(s).`);
     }
 
     async function drawCard(deck,count){ for(let i=0;i<count;i++) await drawOne(deck); }
     async function drawOne(deck){
-      const idsRef = ref(db, `rooms/${curRoom}/decks/ids/${deck}`);
-      const discRef = ref(db, `rooms/${curRoom}/decks/discard/${deck}`);
-      let ids = (await get(idsRef)).val()||[];
+      const idsRef = db.ref(`rooms/${curRoom}/decks/ids/${deck}`);
+      const discRef = db.ref(`rooms/${curRoom}/decks/discard/${deck}`);
+      let ids = (await idsRef.get()).val()||[];
       if(ids.length===0){
-        const disc=(await get(discRef)).val()||[];
+        const disc=(await discRef.get()).val()||[];
         ids = disc.slice();
-        await set(discRef, []);
+        await discRef.set([]);
       }
       const cardId = ids.shift();
-      await set(idsRef, ids);
+      await idsRef.set(ids);
       const discArr = ((roomSnap.decks?.discard?.[deck])||[]).concat(cardId);
-      await set(discRef, discArr);
+      await discRef.set(discArr);
 
       const card = findCard(deck, cardId);
       const meName = roomSnap.players[uid]?.name || 'Someone';
@@ -978,54 +967,54 @@
     function findCard(deck,id){ const d=defaultDecks(); return (d[deck]||[]).find(c=>c.id===id)||{id,title:'Unknown',text:'',effect:{}}; }
 
     async function applyCardEffect(effect){
-      const meRef = ref(db, `rooms/${curRoom}/players/${uid}`);
+      const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
       const meNow = roomSnap.players[uid];
       switch(effect.type){
-        case 'hp': await update(meRef, { hp:(meNow.hp||0)+(effect.hp||0) }); break;
-        case 'token': await update(meRef, { tokens:(meNow.tokens||0)+(effect.d||0) }); await checkBurnout(); break;
+        case 'hp': await meRef.update({ hp:(meNow.hp||0)+(effect.hp||0) }); break;
+        case 'token': await meRef.update({ tokens:(meNow.tokens||0)+(effect.d||0) }); await checkBurnout(); break;
         case 'discardTokensForHp': {
           const take = Math.min(effect.max||0, meNow.tokens||0);
           const gain = (effect.per||0) * take;
-          await update(meRef, { tokens:(meNow.tokens||0)-take, hp:(meNow.hp||0)+gain });
+          await meRef.update({ tokens:(meNow.tokens||0)-take, hp:(meNow.hp||0)+gain });
           await checkBurnout();
           break;
         }
         case 'tokenToHp': {
           if((meNow.tokens||0)>0){
-            await update(meRef, { tokens:(meNow.tokens||0)-1, hp:(meNow.hp||0)+(effect.hp||0) });
+            await meRef.update({ tokens:(meNow.tokens||0)-1, hp:(meNow.hp||0)+(effect.hp||0) });
             await checkBurnout();
           }
           break;
         }
         case 'career': {
           const career = { perTurn: effect.perTurn||0 };
-          await update(meRef, { career });
+          await meRef.update({ career });
           break;
         }
         case 'careerDice': {
           const career = { dice:true, per: effect.per||20 };
-          await update(meRef, { career });
+          await meRef.update({ career });
           break;
         }
       }
     }
     async function applyFamily(args){
-      const meRef = ref(db, `rooms/${curRoom}/players/${uid}`);
+      const meRef = db.ref(`rooms/${curRoom}/players/${uid}`);
       const meNow = roomSnap.players[uid];
       switch(args.type){
-        case 'mentor': await update(meRef, { hp:(meNow.hp||0)+40 }); await logMsg('Mentor boosts +40 HP'); break;
+        case 'mentor': await meRef.update({ hp:(meNow.hp||0)+40 }); await logMsg('Mentor boosts +40 HP'); break;
         case 'partner': {
           const patch = {};
           if(args.spouseBonusPerPayday){ patch.spouseBonusPerPayday = args.spouseBonusPerPayday; }
           if(args.hpDelta){ patch.hp = (meNow.hp||0) + args.hpDelta; }
-          await update(meRef, Object.keys(patch).length?patch:{ hp:(meNow.hp||0)+60 });
+          await meRef.update(Object.keys(patch).length?patch:{ hp:(meNow.hp||0)+60 });
           await logMsg('Partner support locked in.');
           break;
         }
         case 'child': {
           let hp = (meNow.hp||0);
           if(args.hpDelta) hp += args.hpDelta;
-          await update(meRef, { hp });
+          await meRef.update({ hp });
           await logMsg('Family grows; budget tightens.');
           break;
         }
@@ -1042,7 +1031,7 @@
       await logMsg(`${meName} chooses a career: ${pick.title}`);
     }
     async function finishGame(){
-      await update(ref(db, 'rooms/'+curRoom), { state:'finished', log:(roomSnap.log||[]).concat({ts:Date.now(), msg:'Finished! Tally scores.'}) });
+      await db.ref('rooms/'+curRoom).update({ state:'finished', log:(roomSnap.log||[]).concat({ts:Date.now(), msg:'Finished! Tally scores.'}) });
     }
 
     // Chat
@@ -1055,7 +1044,7 @@
     });
 
     // Back to lobby
-    byId('backToLobbyBtn').addEventListener('click', async ()=>{ await update(ref(db, 'rooms/'+curRoom), { state:'lobby' }); });
+    byId('backToLobbyBtn').addEventListener('click', async ()=>{ await db.ref('rooms/'+curRoom).update({ state:'lobby' }); });
 
     // ===== Create / Join =====
     async function createRoom(){
@@ -1067,15 +1056,15 @@
       try {
         const code = codeGen();
         const tiles = defaultTiles();
-        const roomRef = ref(db, 'rooms/'+code);
+        const roomRef = db.ref('rooms/'+code);
         const user = {
           name, avatarUrl: avatarUrl||'', hp: START_HP, pos: 1, tokens: 0,
           ready: false, connected: true, lastSeen: Date.now(), career: null,
           skip: 0, burnedOut: false
         };
 
-        await set(roomRef, {
-          createdAt: Date.now(),
+        await roomRef.set({
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
           state: 'lobby',
           hostUid: uid,
           seed: Math.floor(Math.random()*1e9),
@@ -1110,18 +1099,18 @@
       if(!uid){ setAuthError('Still connecting… please try again in a moment.'); return; }
 
       try {
-        const roomRef = ref(db, 'rooms/'+code);
-        const snap = await get(roomRef);
+        const roomRef = db.ref('rooms/'+code);
+        const snap = await roomRef.get();
         if(!snap.exists()){ setAuthError('Room not found.'); return; }
 
-        const userRef = ref(db, `rooms/${code}/players/${uid}`);
+        const userRef = roomRef.child('players/'+uid);
         const user = {
           name, avatarUrl: avatarUrl||'', hp: START_HP, pos: 1, tokens: 0,
           ready: false, connected: true, lastSeen: Date.now(), career: null,
           skip: 0, burnedOut: false
         };
-        await update(userRef, user);
-        await runTransaction(ref(db, `rooms/${code}/turnOrder`), arr=>{
+        await userRef.update(user);
+        await roomRef.child('turnOrder').transaction(arr=>{
           if(!arr) return [uid];
           if(!arr.includes(uid)) arr.push(uid);
           return arr;
@@ -1139,10 +1128,10 @@
     byId('joinRoomBtn').addEventListener('click', joinRoom);
 
     // Auth
-    onAuthStateChanged(auth, async user => {
+    auth.onAuthStateChanged(async user => {
       if(user){ uid = user.uid; show('auth'); }
       else {
-        try { await signInAnonymously(auth); }
+        try { await auth.signInAnonymously(); }
         catch (err){ console.error('Anon auth failed:', err); setAuthError('Anonymous auth is disabled in your Firebase project. Enable it under Authentication → Sign-in method.'); }
       }
     });
