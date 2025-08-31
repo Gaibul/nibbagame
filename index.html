@@ -63,6 +63,18 @@
     .popupCard{max-width:560px;width:90%;background:#0f141b;border:1px solid #28303c;border-radius:14px;padding:16px;box-shadow:0 20px 40px rgba(0,0,0,.35)}
     .popupCard h3{margin:0 0 6px 0}
     .popupCard p{margin:0 0 10px 0;color:#b6c2d1}
+
+    /* NEW: full image inside tile popup */
+    .popupImg{
+      width:100%;
+      aspect-ratio:16/9;        /* keeps a nice rectangle; remove if you want auto height */
+      background-size:cover;
+      background-position:center;
+      border-radius:10px;
+      border:1px solid #28303c;
+      margin:10px 0;
+      display:none;             /* shown only for tile popups with an image */
+    }
   </style>
 </head>
 <body>
@@ -197,6 +209,8 @@
   <div class="popupCard">
     <div class="small muted" id="popupWho">–</div>
     <h3 id="popupTitle">Title</h3>
+    <!-- NEW: full image area for tile popups -->
+    <div id="popupImage" class="popupImg"></div>
     <p id="popupDesc">Description</p>
     <div class="row" style="justify-content:flex-end">
       <button class="btn" id="popupClose">Close</button>
@@ -254,7 +268,11 @@
     avatarInput.addEventListener('input', () => { avatarPreview.src = avatarInput.value || '' });
 
     // Popups
-    const popup = byId('tilePopup'), popupTitle = byId('popupTitle'), popupDesc = byId('popupDesc'), popupWho = byId('popupWho');
+    const popup = byId('tilePopup'),
+          popupTitle = byId('popupTitle'),
+          popupDesc = byId('popupDesc'),
+          popupWho = byId('popupWho'),
+          popupImg = byId('popupImage'); // NEW: image container
     byId('popupClose').onclick = () => popup.classList.remove('show');
 
     const stealPopup = byId('stealPopup'), stealTarget = byId('stealTarget');
@@ -417,14 +435,29 @@
       if(pop && pop.ts){
         popupTitle.textContent = pop.title || (pop.kind==='card' ? 'Card' : 'Event');
         popupDesc.textContent = pop.description || '';
+
         if(pop.kind==='card'){
           popupWho.textContent = `${pop.player||'Someone'} drew a ${cap(pop.deck)} card`;
+          if (popupImg) popupImg.style.display = 'none';
         } else if(pop.kind==='tile'){
           popupWho.textContent = `${pop.player||'Someone'} landed on #${pop.n}`;
+          // NEW: show the tile's full image if present
+          const t = (roomSnap.tiles || {})[pop.n];
+          const url = t && t.imgUrl ? t.imgUrl : '';
+          if (popupImg) {
+            if (url) {
+              popupImg.style.backgroundImage = `url('${url}')`;
+              popupImg.style.display = 'block';
+            } else {
+              popupImg.style.display = 'none';
+            }
+          }
         } else if(pop.kind==='event'){
           popupWho.textContent = pop.player || '–';
+          if (popupImg) popupImg.style.display = 'none';
         } else {
           popupWho.textContent = pop.player || '–';
+          if (popupImg) popupImg.style.display = 'none';
         }
         popup.classList.add('show');
       }
