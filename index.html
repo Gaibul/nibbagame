@@ -63,6 +63,59 @@
     .popupCard{max-width:560px;width:90%;background:#0f141b;border:1px solid #28303c;border-radius:14px;padding:16px;box-shadow:0 20px 40px rgba(0,0,0,.35)}
     .popupCard h3{margin:0 0 6px 0}
     .popupCard p{margin:0 0 10px 0;color:#b6c2d1}
+
+    /* --- Improved popup image block --- */
+    .popupMedia {
+      width: 100%;
+      border: 1px solid #28303c;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 10px 0;
+      background: #0b0f15;
+      position: relative;
+      display: none; /* shown when we have an image */
+    }
+    .popupMedia img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 50vh;
+      object-fit: cover;
+    }
+    .popupMedia.loading::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        rgba(255,255,255,0.04) 0%,
+        rgba(255,255,255,0.08) 50%,
+        rgba(255,255,255,0.04) 100%
+      );
+      animation: shimmer 1.1s infinite;
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .popupMediaBar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 6px 8px;
+      font-size: 11px;
+      color: #9ab3c7;
+      border-top: 1px solid #28303c;
+      background: #0d131c;
+    }
+    .popupMediaLink {
+      color: #b8deff;
+      text-decoration: none;
+      border: 1px solid #1f2a36;
+      border-radius: 8px;
+      padding: 3px 8px;
+    }
+    .popupMediaLink:hover { filter: brightness(1.1); }
   </style>
 </head>
 <body>
@@ -197,6 +250,15 @@
   <div class="popupCard">
     <div class="small muted" id="popupWho">–</div>
     <h3 id="popupTitle">Title</h3>
+
+    <!-- Improved media block -->
+    <div id="popupMedia" class="popupMedia">
+      <img id="popupImg" alt="tile image" />
+      <div class="popupMediaBar" id="popupMediaBar" style="display:none">
+        <a id="popupOpenFull" class="popupMediaLink" target="_blank" rel="noopener">Open full image</a>
+      </div>
+    </div>
+
     <p id="popupDesc">Description</p>
     <div class="row" style="justify-content:flex-end">
       <button class="btn" id="popupClose">Close</button>
@@ -224,7 +286,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
 <script>
-  // ---- Your Firebase config ----
+  // ---- Firebase config (modular values, using compat SDK init) ----
   const firebaseConfig = {
     apiKey: "AIzaSyAEqutXCO5OZD6VU_ohaBxNfh7G8Q6PEy0",
     authDomain: "nomercy-8269a.firebaseapp.com",
@@ -254,8 +316,23 @@
     avatarInput.addEventListener('input', () => { avatarPreview.src = avatarInput.value || '' });
 
     // Popups
-    const popup = byId('tilePopup'), popupTitle = byId('popupTitle'), popupDesc = byId('popupDesc'), popupWho = byId('popupWho');
-    byId('popupClose').onclick = () => popup.classList.remove('show');
+    const popup = byId('tilePopup'),
+          popupTitle = byId('popupTitle'),
+          popupDesc  = byId('popupDesc'),
+          popupWho   = byId('popupWho'),
+          popupMedia = byId('popupMedia'),
+          popupImg   = byId('popupImg'),
+          popupMediaBar = byId('popupMediaBar'),
+          popupOpenFull = byId('popupOpenFull');
+    byId('popupClose').onclick = () => {
+      popup.classList.remove('show');
+      if (popupImg) popupImg.src = '';
+      if (popupMedia) {
+        popupMedia.classList.remove('loading');
+        popupMedia.style.display = 'none';
+      }
+      if (popupMediaBar) popupMediaBar.style.display = 'none';
+    };
 
     const stealPopup = byId('stealPopup'), stealTarget = byId('stealTarget');
     byId('stealCancel').onclick = () => stealPopup.classList.remove('show');
@@ -405,6 +482,30 @@
       });
     }
 
+    // ===== Popup image helper =====
+    function showPopupImage(url) {
+      if (!popupMedia || !popupImg || !url) {
+        if (popupMedia) popupMedia.style.display = 'none';
+        if (popupMediaBar) popupMediaBar.style.display = 'none';
+        return;
+      }
+      popupMedia.style.display = 'block';
+      popupMedia.classList.add('loading');
+      popupMediaBar.style.display = 'none';
+      popupImg.src = '';
+      popupImg.onload = () => {
+        popupMedia.classList.remove('loading');
+        popupMediaBar.style.display = 'flex';
+      };
+      popupImg.onerror = () => {
+        popupMedia.classList.remove('loading');
+        popupMedia.style.display = 'none';
+        popupMediaBar.style.display = 'none';
+      };
+      popupImg.src = url;
+      popupOpenFull.href = url;
+    }
+
     // ===== Renderers =====
     function render(){
       if(!roomSnap){ show('auth'); return; }
@@ -414,17 +515,21 @@
       else if(state==='finished'){ renderFinish(); show('finish'); }
 
       const pop = roomSnap.popup;
-      if(pop && pop.ts){
-        popupTitle.textContent = pop.title || (pop.kind==='card' ? 'Card' : 'Event');
-        popupDesc.textContent = pop.description || '';
-        if(pop.kind==='card'){
-          popupWho.textContent = `${pop.player||'Someone'} drew a ${cap(pop.deck)} card`;
-        } else if(pop.kind==='tile'){
-          popupWho.textContent = `${pop.player||'Someone'} landed on #${pop.n}`;
-        } else if(pop.kind==='event'){
-          popupWho.textContent = pop.player || '–';
+      if (pop && pop.ts) {
+        popupTitle.textContent = pop.title || (pop.kind === 'card' ? 'Card' : 'Event');
+        popupDesc.textContent  = pop.description || '';
+
+        if (pop.kind === 'card') {
+          popupWho.textContent = `${pop.player || 'Someone'} drew a ${cap(pop.deck)} card`;
+          showPopupImage(null);
+        } else if (pop.kind === 'tile') {
+          popupWho.textContent = `${pop.player || 'Someone'} landed on #${pop.n}`;
+          const t = (roomSnap.tiles || {})[pop.n];
+          const url = t && t.imgUrl ? t.imgUrl : null;
+          showPopupImage(url);
         } else {
           popupWho.textContent = pop.player || '–';
+          showPopupImage(null);
         }
         popup.classList.add('show');
       }
@@ -435,6 +540,7 @@
         logBox.scrollTop = logBox.scrollHeight;
       }
     }
+
     function renderLobby(){
       byId('lobbyCode').textContent = curRoom;
       byId('hostTag').textContent = roomSnap.players?.[roomSnap.hostUid]?.name || '–';
@@ -454,7 +560,29 @@
     }
 
     // ===== HUD/Game render =====
+    async function sanitizeTurnStateIfHost() {
+      if (roomSnap.state!=='playing' || roomSnap.hostUid!==uid) return;
+      const players = roomSnap.players || {};
+      const oldOrder = roomSnap.turnOrder || [];
+      const order = oldOrder.filter(id => !!players[id]); // remove stale ids
+      // add any players not yet in order
+      Object.keys(players).forEach(id => { if (!order.includes(id)) order.push(id); });
+      if (order.length === 0) {
+        await db.ref('rooms/' + curRoom).update({ turnOrder: [], currentTurnIndex: 0 });
+        return;
+      }
+      let idx = roomSnap.currentTurnIndex || 0;
+      if (idx >= order.length) idx = idx % order.length;
+      if (idx < 0) idx = 0;
+      if (order.join(',') !== oldOrder.join(',') || idx !== (roomSnap.currentTurnIndex||0)) {
+        await db.ref('rooms/' + curRoom).update({ turnOrder: order, currentTurnIndex: idx });
+      }
+    }
+
     function renderGame(){
+      // keep order sane so players 7, 8, ... get turns
+      sanitizeTurnStateIfHost();
+
       byId('gameCode').textContent = curRoom;
       const turnIdx = roomSnap.currentTurnIndex||0;
       const order = roomSnap.turnOrder||[];
@@ -722,7 +850,6 @@
 
       await db.ref(`rooms/${curRoom}/turn`).set({ rolled: true });
 
-      const diceEl = byId('dice');
       diceEl.classList.add('roll');
       const sRoll = 1 + Math.floor(Math.random()*6);
       setTimeout(async ()=>{
@@ -798,15 +925,18 @@
       await db.ref('rooms/'+curRoom).update({ log: arr.slice(-300) });
     }
 
-    // TURN ROTATION with filtering & auto-skip
+    // TURN ROTATION with filtering & auto-skip (works for any number of players)
     async function nextTurn(hostTriggered=false){
       const players = roomSnap.players || {};
       let order = (roomSnap.turnOrder || []).filter(id => !!players[id]);
+      // ensure late-joiners get into the order
+      Object.keys(players).forEach(id => { if (!order.includes(id)) order.push(id); });
       if(order.length === 0){
         await db.ref('rooms/' + curRoom).update({ turnOrder: [], currentTurnIndex: 0 });
         return;
       }
       let idx = roomSnap.currentTurnIndex || 0;
+      if (idx >= order.length) idx = idx % order.length;
 
       for(let attempts=0; attempts<order.length; attempts++){
         idx = (idx + 1) % order.length;
