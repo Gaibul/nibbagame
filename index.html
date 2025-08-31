@@ -63,18 +63,6 @@
     .popupCard{max-width:560px;width:90%;background:#0f141b;border:1px solid #28303c;border-radius:14px;padding:16px;box-shadow:0 20px 40px rgba(0,0,0,.35)}
     .popupCard h3{margin:0 0 6px 0}
     .popupCard p{margin:0 0 10px 0;color:#b6c2d1}
-
-    /* NEW: full image inside tile popup */
-    .popupImg{
-      width:100%;
-      aspect-ratio:16/9;
-      background-size:cover;
-      background-position:center;
-      border-radius:10px;
-      border:1px solid #28303c;
-      margin:10px 0;
-      display:none;
-    }
   </style>
 </head>
 <body>
@@ -209,8 +197,6 @@
   <div class="popupCard">
     <div class="small muted" id="popupWho">–</div>
     <h3 id="popupTitle">Title</h3>
-    <!-- NEW: full image area for tile popups -->
-    <div id="popupImage" class="popupImg"></div>
     <p id="popupDesc">Description</p>
     <div class="row" style="justify-content:flex-end">
       <button class="btn" id="popupClose">Close</button>
@@ -268,11 +254,7 @@
     avatarInput.addEventListener('input', () => { avatarPreview.src = avatarInput.value || '' });
 
     // Popups
-    const popup = byId('tilePopup'),
-          popupTitle = byId('popupTitle'),
-          popupDesc = byId('popupDesc'),
-          popupWho = byId('popupWho'),
-          popupImg = byId('popupImage');
+    const popup = byId('tilePopup'), popupTitle = byId('popupTitle'), popupDesc = byId('popupDesc'), popupWho = byId('popupWho');
     byId('popupClose').onclick = () => popup.classList.remove('show');
 
     const stealPopup = byId('stealPopup'), stealTarget = byId('stealTarget');
@@ -335,7 +317,7 @@
       21:g("1QOO_WolxEZa8nZYQ3hRQ08kJNLSD_mwX"),
       22:g("1dEdjM8pp_XnvtHC9baCTCT5cDcFMCkpz"),
       23:g("19uxsHpAxNuYmrBoIL2yQ0aFMSuTmwA1k"),
-      24:g("1cLJ71h9NsvmX7UlaVLpgbowQ-3mqiud"),
+      24:g("1cLJ71h9NsvmX7UlaZVLpgbowQ-3mqiud"),
       25:g("1CdbJrqIzacrilK8jvD4jDki4qGQHFR1W"),
       26:g("1isggTXWeoN7_io6i4L6LkLMMpLcDCOrC"),
       27:g("1X7QoGlF6UlSYLMJ3fXPck4eXENl7dKhH"),
@@ -356,7 +338,7 @@
 
     // ===== Tiles (with embedded images) =====
     function defaultTiles(){
-      const t=[];
+      const t=[]; 
       const push=(n,title,description,action,args={})=>t.push({n,title,description,action,args,imgUrl: tileImgs[n] || ''});
       // Childhood (1–10)
       push(1,'Start: Born in the Hood','You enter the world in a underfunded hospital. Nurses say, "Another fighter." Grab your diaper bag and hustle.','PAYDAY',{amount:50});
@@ -435,29 +417,14 @@
       if(pop && pop.ts){
         popupTitle.textContent = pop.title || (pop.kind==='card' ? 'Card' : 'Event');
         popupDesc.textContent = pop.description || '';
-
         if(pop.kind==='card'){
           popupWho.textContent = `${pop.player||'Someone'} drew a ${cap(pop.deck)} card`;
-          if (popupImg) popupImg.style.display = 'none';
         } else if(pop.kind==='tile'){
           popupWho.textContent = `${pop.player||'Someone'} landed on #${pop.n}`;
-          // show the tile's full image if present
-          const t = (roomSnap.tiles || {})[pop.n];
-          const url = t && t.imgUrl ? t.imgUrl : '';
-          if (popupImg) {
-            if (url) {
-              popupImg.style.backgroundImage = `url('${url}')`;
-              popupImg.style.display = 'block';
-            } else {
-              popupImg.style.display = 'none';
-            }
-          }
         } else if(pop.kind==='event'){
           popupWho.textContent = pop.player || '–';
-          if (popupImg) popupImg.style.display = 'none';
         } else {
           popupWho.textContent = pop.player || '–';
-          if (popupImg) popupImg.style.display = 'none';
         }
         popup.classList.add('show');
       }
@@ -633,15 +600,8 @@
     });
     byId('startGameBtn').addEventListener('click', async ()=>{
       if(roomSnap.hostUid!==uid) return;
-      const players = roomSnap.players || {};
-      const updates = {};
-
-      // ---- FIX: preserve existing join order & include any newcomers ----
-      const existing = (roomSnap.turnOrder || []).filter(id => players[id]);
-      const newcomers = Object.keys(players).filter(id => !existing.includes(id));
-      const order = existing.concat(newcomers);
-      // -------------------------------------------------------------------
-
+      const players = roomSnap.players||{}; const updates = {};
+      const order = Object.keys(players);
       Object.keys(players).forEach(pid=>{
         updates[`players/${pid}/hp`] = START_HP;
         updates[`players/${pid}/pos`] = 1;
@@ -664,7 +624,7 @@
           discard: {action:[], life:[], career:[]}
         };
       }
-      updates['turnOrder'] = order; // use preserved + newcomers
+      updates['turnOrder'] = order;
       updates['state'] = 'playing';
       updates['currentTurnIndex'] = 0;
       updates['dice'] = null;
@@ -811,7 +771,7 @@
       if(left>0){
         await db.ref('rooms/'+curRoom+'/pendingDraw').update({ count: left });
       } else {
-        await db.ref('rooms/'+curRoom').update({ pendingDraw: null });
+        await db.ref('rooms/'+curRoom).update({ pendingDraw: null });
         await checkBurnout();
       }
     }
